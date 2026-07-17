@@ -1,0 +1,39 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# Terraform — never commit state or real variable values
+**/terraform.tfvars
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfstate.backup
+**/.terraform/
+**/.terraform.lock.hcl
+crash.log
+*.tfplan
+
+# Secrets and local config — never commit
+.env
+*.pem
+*.key
+auth.json
+pepper.config.json
+
+# Runtime state — the assistant's own data is not source.
+# The shipped starting point is workspace.template/, which pepperd copies into
+# the live workspace on first boot. The live workspace holds YOUR memory/notes.
+/workspace/
+var/
+*.sqlite
+*.sqlite-journal
+*.db
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Optional local audit patterns (deployment-specific strings)
+.audit-secrets

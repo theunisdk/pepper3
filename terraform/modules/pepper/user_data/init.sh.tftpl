@@ -1,0 +1,285 @@
+#!/bin/bash
+# -----------------------------------------------------------------------------
+# Pepper bootstrap. Runs once at first boot.
+#
+# Hardens the OS, installs Node and the app, creates an unprivileged user, wires
+# a boot-time secrets fetcher (SSM Parameter Store -> /etc/pepper/pepper.env),
+# and installs pepperd as a systemd service.
+#
+# What it deliberately does NOT do: log Pepper in to Codex. That is interactive
+# and one-time — see the README. The service will run and report the problem
+# over Telegram until you do it.
+#
+# Template vars: pepper_user, aws_region, repo_url, repo_ref, timezone, model,
+#                enable_google, secret_telegram, secret_telegram_allowed, secret_google
+# -----------------------------------------------------------------------------
+set -euo pipefail
+
+exec > >(tee /var/log/pepper-bootstrap.log | logger -t pepper-bootstrap -s 2>/dev/console) 2>&1
+echo "=== Pepper bootstrap starting at $(date -u +%FT%TZ) ==="
+
+export DEBIAN_FRONTEND=noninteractive
+
+PEPPER_USER="${pepper_user}"
+PEPPER_HOME="/home/$PEPPER_USER"
+APP_DIR="$PEPPER_HOME/app"
+STATE_DIR="$PEPPER_HOME/pepper"
+
+# -----------------------------------------------------------------------------
+# Base OS
+# -----------------------------------------------------------------------------
+apt-get update -y
+apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+apt-get install -y \
+  ca-certificates curl unzip jq git \
+  build-essential python3 \
+  ufw fail2ban unattended-upgrades \
+  ripgrep
+
+timedatectl set-timezone "${timezone}" || echo "could not set timezone ${timezone}, staying on UTC"
+
+# Host firewall. The security group already denies all inbound; this is the
+# second layer for the day someone loosens the SG "just for a minute".
+ufw default deny incoming
+ufw default allow outgoing
+ufw --force enable
+
+cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+
+systemctl enable --now fail2ban || true
+
+# -----------------------------------------------------------------------------
+# AWS CLI v2 — needed by the secrets fetcher
+# -----------------------------------------------------------------------------
+if ! command -v aws >/dev/null 2>&1; then
+  cd /tmp
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+  unzip -q awscliv2.zip
+  ./aws/install
+  rm -rf awscliv2.zip aws/
+fi
+aws --version
+
+# -----------------------------------------------------------------------------
+# Node.js LTS
+# -----------------------------------------------------------------------------
+if ! command -v node >/dev/null 2>&1; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+fi
+node --version
+
+# -----------------------------------------------------------------------------
+# Unprivileged user
+# -----------------------------------------------------------------------------
+if ! id "$PEPPER_USER" >/dev/null 2>&1; then
+  useradd -m -s /bin/bash "$PEPPER_USER"
+fi
+install -d -m 0700 -o "$PEPPER_USER" -g "$PEPPER_USER" "$STATE_DIR"
+
+# -----------------------------------------------------------------------------
+# Application
+# -----------------------------------------------------------------------------
+if [ ! -d "$APP_DIR/.git" ]; then
+  sudo -u "$PEPPER_USER" git clone --depth 1 --branch "${repo_ref}" "${repo_url}" "$APP_DIR"
+else
+  sudo -u "$PEPPER_USER" git -C "$APP_DIR" fetch --depth 1 origin "${repo_ref}"
+  sudo -u "$PEPPER_USER" git -C "$APP_DIR" checkout -f FETCH_HEAD
+fi
+
+sudo -u "$PEPPER_USER" bash -lc "cd $APP_DIR && npm ci --omit=dev && npm run build" \
+  || { echo "BUILD FAILED — see above. Fix and re-run: sudo -u $PEPPER_USER bash -lc 'cd $APP_DIR && npm ci && npm run build'"; }
+
+# Config. Secrets are NOT in here; they arrive via the environment.
+cat > "$STATE_DIR/pepper.config.json" <<EOF
+{
+  "ownerTelegramIds": [],
+  "timezone": "${timezone}",
+  $( [ -n "${model}" ] && echo "\"model\": \"${model}\"," )
+  "workspacePath": "$STATE_DIR/workspace",
+  "codexHome": "$STATE_DIR/codex-home",
+  "dbPath": "$STATE_DIR/pepper.sqlite"
+}
+EOF
+chown "$PEPPER_USER:$PEPPER_USER" "$STATE_DIR/pepper.config.json"
+chmod 0600 "$STATE_DIR/pepper.config.json"
+
+# -----------------------------------------------------------------------------
+# Secrets fetcher: SSM -> /etc/pepper/pepper.env, at every boot.
+# -----------------------------------------------------------------------------
+install -d -m 0750 -o root -g "$PEPPER_USER" /etc/pepper
+
+cat > /usr/local/sbin/pepper-fetch-secrets <<'FETCHEOF'
+#!/bin/bash
+set -euo pipefail
+
+REGION="${aws_region}"
+PEPPER_USER="${pepper_user}"
+OUT="/etc/pepper/pepper.env"
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+
+fetch() {
+  # $1=ssm-name  $2=env-var-name
+  local value
+  [ -z "$1" ] && return 0
+  if value=$(aws --region "$REGION" ssm get-parameter --name "$1" --with-decryption \
+              --query 'Parameter.Value' --output text 2>/dev/null); then
+    if [ "$value" != "REPLACE_ME" ] && [ -n "$value" ]; then
+      printf '%s=%q\n' "$2" "$value" >> "$TMP"
+    else
+      echo "pepper-fetch-secrets: $1 is still REPLACE_ME — skipping" >&2
+    fi
+  else
+    echo "pepper-fetch-secrets: could not read $1" >&2
+  fi
+}
+
+fetch "${secret_telegram}"         TELEGRAM_BOT_TOKEN
+fetch "${secret_telegram_allowed}" PEPPER_OWNER_TELEGRAM_IDS
+
+# Google OAuth client_secret is a JSON blob: write it to a file rather than
+# stuffing JSON into a shell variable.
+GOOGLE_SECRET_NAME="${secret_google}"
+if [ -n "$GOOGLE_SECRET_NAME" ]; then
+  GOOGLE_JSON="/home/$PEPPER_USER/pepper/google_client_secret.json"
+  if value=$(aws --region "$REGION" ssm get-parameter --name "$GOOGLE_SECRET_NAME" --with-decryption \
+              --query 'Parameter.Value' --output text 2>/dev/null); then
+    if [ "$value" != "REPLACE_ME" ] && [ -n "$value" ]; then
+      umask 077
+      printf '%s' "$value" > "$GOOGLE_JSON.tmp"
+      install -m 0600 -o "$PEPPER_USER" -g "$PEPPER_USER" "$GOOGLE_JSON.tmp" "$GOOGLE_JSON"
+      rm -f "$GOOGLE_JSON.tmp"
+      printf '%s=%q\n' GOOGLE_OAUTH_CLIENT_SECRET_FILE "$GOOGLE_JSON" >> "$TMP"
+    fi
+  fi
+fi
+
+install -m 0640 -o root -g "$PEPPER_USER" "$TMP" "$OUT"
+echo "pepper-fetch-secrets: wrote $OUT"
+FETCHEOF
+chmod 0755 /usr/local/sbin/pepper-fetch-secrets
+
+cat > /etc/systemd/system/pepper-fetch-secrets.service <<'EOF'
+[Unit]
+Description=Fetch Pepper secrets from SSM Parameter Store into /etc/pepper/pepper.env
+After=network-online.target
+Wants=network-online.target
+Before=pepperd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pepper-fetch-secrets
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# -----------------------------------------------------------------------------
+# pepperd service.
+#
+# A plain system service running as the pepper user. (The Hermes deployment this
+# was adapted from needed a user-service + linger dance; Pepper has no
+# interactive install step or dashboard, so it doesn't.)
+# -----------------------------------------------------------------------------
+cat > /etc/systemd/system/pepperd.service <<EOF
+[Unit]
+Description=Pepper personal assistant
+After=network-online.target pepper-fetch-secrets.service
+Wants=network-online.target
+Requires=pepper-fetch-secrets.service
+
+[Service]
+Type=simple
+User=$PEPPER_USER
+Group=$PEPPER_USER
+WorkingDirectory=$APP_DIR
+EnvironmentFile=/etc/pepper/pepper.env
+Environment=NODE_ENV=production
+Environment=PEPPER_CONFIG=$STATE_DIR/pepper.config.json
+ExecStart=/usr/bin/node $APP_DIR/dist/pepperd.js $STATE_DIR/pepper.config.json
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Modest hardening. The agent legitimately writes to its workspace, so this is
+# not a jail — the sandbox around the model's own shell is a separate layer.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=$PEPPER_HOME
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable pepper-fetch-secrets.service
+systemctl start pepper-fetch-secrets.service || true
+systemctl enable pepperd.service
+systemctl start pepperd.service || echo "pepperd did not start — check: journalctl -u pepperd"
+
+# -----------------------------------------------------------------------------
+# Optional: Google Workspace CLI
+# -----------------------------------------------------------------------------
+if [ "${enable_google}" = "true" ]; then
+  sudo -u "$PEPPER_USER" bash -lc 'npm install -g --prefix ~/.local @googleworkspace/cli' \
+    || echo "gws install failed — install it by hand later"
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$PEPPER_HOME/.bashrc"
+fi
+
+# -----------------------------------------------------------------------------
+# MOTD — the next steps a human needs when they SSM in
+# -----------------------------------------------------------------------------
+cat > /etc/update-motd.d/99-pepper <<'MOTDEOF'
+#!/bin/bash
+cat <<'MSG'
+
+==========================================
+  PEPPER — personal assistant
+==========================================
+
+Status:      systemctl status pepperd
+Logs:        journalctl -u pepperd -f
+Restart:     sudo systemctl restart pepperd
+
+ONE-TIME SETUP — Pepper cannot think until you log it in to Codex:
+
+  sudo -u PEPPER_USER -i
+  cd ~/app
+  CODEX_HOME=~/pepper/codex-home npx @openai/codex login --device-auth
+  # follow the URL + code on any browser, then:
+  exit
+  sudo systemctl restart pepperd
+
+Verify the spike passes before trusting it unattended:
+
+  sudo -u PEPPER_USER -i
+  cd ~/app && CODEX_HOME=~/pepper/codex-home npm run spike
+
+Config:      ~PEPPER_USER/pepper/pepper.config.json
+Workspace:   ~PEPPER_USER/pepper/workspace   <- AGENTS.md, MEMORY.md, skills/, tools/
+Secrets:     /etc/pepper/pepper.env  (refreshed from SSM at every boot)
+
+After changing an SSM secret:
+  sudo systemctl restart pepper-fetch-secrets pepperd
+
+MSG
+MOTDEOF
+sed -i "s/PEPPER_USER/$PEPPER_USER/g" /etc/update-motd.d/99-pepper
+chmod +x /etc/update-motd.d/99-pepper
+
+apt-get autoremove -y
+apt-get autoclean -y
+
+touch /var/lib/cloud/instance/pepper-bootstrap-complete
+echo "=== Pepper bootstrap complete at $(date -u +%FT%TZ) ==="

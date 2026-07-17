@@ -1,0 +1,15 @@
+{
+  "_comment": "Copy to pepper.config.json and edit. Secrets never live here — the bot token comes from the TELEGRAM_BOT_TOKEN environment variable (written to /etc/pepper/pepper.env from SSM at boot).",
+
+  "ownerTelegramIds": [123456789],
+  "timezone": "UTC",
+
+  "workspacePath": "~/pepper/workspace",
+  "codexHome": "~/pepper/codex-home",
+  "dbPath": "~/pepper/pepper.sqlite",
+
+  "turnTimeoutMs": 600000,
+  "standingContextBudget": 20000,
+  "dailyNoteDays": 2,
+  "cronGraceMs": 1800000
+}

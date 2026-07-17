@@ -1,0 +1,37 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is gitignored — keep it
+# that way; it identifies you.
+
+# REQUIRED. Your Telegram numeric user ID. Get it by messaging @userinfobot.
+# Anyone on this list can drive your assistant and spend your Codex quota.
+telegram_allowed_users = "123456789"
+
+# Your AWS profile and region.
+aws_profile = "default"
+aws_region  = "us-east-1"
+
+# Your timezone — this is what "every weekday at 16:30" means to the assistant.
+timezone = "UTC"
+
+# --- optional ----------------------------------------------------------------
+
+# Deploy your own fork once you start writing skills.
+# pepper_repo_url = "https://github.com/you/pepper3.git"
+# pepper_repo_ref = "main"
+
+# Codex model. Empty uses the Codex default.
+# model = ""
+
+# Install the Google Workspace CLI (gws) for Calendar/Gmail. Needs a Google
+# Cloud OAuth client — see docs/google-setup.md before enabling.
+# enable_google = false
+
+# instance_type    = "t3.small"
+# root_volume_size = 30
+
+# Change if 10.150.x collides with something you already run.
+# vpc_cidr           = "10.150.0.0/16"
+# public_subnet_cidr = "10.150.1.0/24"
+
+# additional_tags = {
+#   Owner = "me"
+# }

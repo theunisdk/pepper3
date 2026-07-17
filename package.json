@@ -1,0 +1,40 @@
+{
+  "name": "pepper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A template for a deterministic, single-user personal AI assistant: Telegram + Codex + cron, on your own EC2 box.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "pepperd": "./dist/pepperd.js",
+    "pepperctl": "./dist/pepperctl.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/pepperd.ts",
+    "start": "node dist/pepperd.js",
+    "ctl": "tsx src/pepperctl.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "spike": "tsx scripts/spike.ts",
+    "audit": "bash scripts/audit-public.sh"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "0.144.5",
+    "better-sqlite3": "^11.7.0",
+    "croner": "^9.0.0",
+    "grammy": "^1.44.0",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
