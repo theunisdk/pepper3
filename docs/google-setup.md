@@ -111,9 +111,8 @@ Re-run `gws auth login`; scopes are baked into the token.
 
 **Token refresh fails only from scheduled jobs.** The agent's shell is sandboxed
 to the workspace, and `gws` needs to write refreshed tokens to its config
-directory. That directory has to be a writable root for the sandbox — the
-Terraform handles this, but if you moved `gws`'s config, check
-`additionalDirectories` in the Codex adapter.
+directory. Add that directory to `sandboxWritableRoots` in `pepper.config.json`
+(see step 3 above) and restart pepperd.
 
 ## Security
 
