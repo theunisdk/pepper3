@@ -49,6 +49,8 @@ Telegram (grammY long-poll) → allowlist check → `TurnQueue` → `Engine` →
 ### Invariants that must not be broken
 
 Each of these prevents a specific, named bug. Changing them reintroduces it.
+The human-facing doctrine behind them (and the broader named patterns) is
+[docs/patterns.md](docs/patterns.md) — keep the two in sync when invariants change.
 
 - **Only `finalResponse` reaches Telegram.** `CodexEngine.execute` logs every non-`agent_message` item (tool calls, reasoning, command output) and drops it. There is intentionally no code path from a tool item to a chat message. (Prevents debug/tool-output leaking into chat.)
 - **One turn in flight per chat; mid-turn messages coalesce.** `TurnQueue` ([src/chat/queue.ts](src/chat/queue.ts)) never runs two turns concurrently on one thread and merges messages that arrive mid-turn into the *next* turn. (Prevents replies that answer a previous question.)

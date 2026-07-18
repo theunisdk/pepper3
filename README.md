@@ -37,6 +37,10 @@ those failures is prevented *structurally* rather than by prompt-wrangling:
 | Silent cron misfires | The daemon owns the schedule, not the model. Every run is keyed to its nominal occurrence in SQLite, so a missed job is *recorded and reported* — never quietly dropped. |
 | Unwanted auto-learning | There is no learning machinery. Behaviour changes when you edit a file. |
 
+These and the rest of the design doctrine are named and mapped to their
+enforcing code in **[docs/patterns.md](docs/patterns.md)** — the document to
+read before forking.
+
 ## What you get
 
 - **Telegram chat** — long-polling, so your box needs no open ports at all.
