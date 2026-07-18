@@ -46,3 +46,18 @@ View-only: replies with the current `SOUL.md` content (or a hint if missing). Ha
 ## 4. Out of scope
 
 Editing SOUL.md via slash command (chat conversation is the editor); automated AGENTS.md template-upgrade merging; any remote for the workspace repo; per-rule granularity/permissions.
+
+## 5. Amendment (live finding, same day)
+
+Live verification showed the Codex sandbox **blocks writes to `.git`** even
+inside the writable workspace (`git commit` → `fatal: Unable to create
+…/.git/…`; the SOUL.md edit itself succeeds). The protocol's step 4 as
+originally specified (agent runs `git commit`) is therefore structurally
+impossible.
+
+Resolution — better than the original: **the daemon owns the history, not the
+model** (the same principle as the scheduler). New control command
+`workspace.commit` + `pepperctl commit --message '<one line>'`: the agent
+authors the message; the daemon, outside the sandbox, performs the write.
+AGENTS.md step 4 and docs updated accordingly. The startup drift-sweep remains
+the safety net for anything uncommitted.

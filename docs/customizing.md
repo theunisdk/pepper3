@@ -35,9 +35,11 @@ just the editor.
 
 The workspace is a standalone git repo, created automatically:
 
-- The assistant commits each behaviour edit with a one-line message; anything
-  uncommitted gets swept into a commit at daemon startup. Nothing changes
-  silently.
+- The assistant commits each behaviour edit with a one-line message — via
+  `pepperctl commit`, because the daemon owns the history: the agent's sandbox
+  cannot write to `.git` (verified live), so the model authors the message and
+  the daemon performs the write. Anything uncommitted gets swept into a commit
+  at daemon startup. Nothing changes silently.
 - **History never leaves the box.** No remote is configured, the app repo
   gitignores the workspace entirely, and your EBS snapshots already back it
   up. If you want off-box history, add your own **private** remote — never the

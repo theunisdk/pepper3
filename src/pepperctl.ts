@@ -28,6 +28,7 @@ Daemon control (talks to the running pepperd):
   pepperctl cron update --name <n> [--cron '<expr>'|--at <iso>] [--prompt <t>] [--mode m] [--tz z]
   pepperctl cron rm|pause|resume --name <n>
   pepperctl runs --name <n> [--limit N]
+  pepperctl commit --message '<one line>'     Commit workspace changes to its local git history
 
 Management (local, work without the daemon):
   pepperctl setup [--owner-id N] [--tz Z] [--force] [--no-login]   First-run config wizard
@@ -78,6 +79,14 @@ function buildRequest(argv: string[]): ControlRequest {
     const f = parseFlags(rest);
     if (typeof f.name !== 'string') fail('runs needs --name');
     return { cmd: 'runs', args: { name: f.name, limit: f.limit ? Number(f.limit) : 10 } };
+  }
+
+  if (group === 'commit') {
+    const f = parseFlags(rest);
+    if (typeof f.message !== 'string' || !f.message.trim()) {
+      fail('commit needs --message (one line describing the behaviour change)');
+    }
+    return { cmd: 'workspace.commit', args: { message: f.message } };
   }
 
   if (group === 'cron') {

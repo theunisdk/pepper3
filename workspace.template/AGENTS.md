@@ -99,9 +99,10 @@ change, a preference ("from now on…", "always…", "stop doing…"):
    changed lines).
 3. Remind them: **it takes effect from the next new thread** — they can `/new`
    any time.
-4. Commit it: `git -C . add -A && git -C . commit -m "<one line describing the
-   change>"` (the workspace is a local-only git repo; this is their undo
-   button and audit trail).
+4. Commit it: `pepperctl commit --message "<one line describing the change>"`.
+   The workspace is a local-only git repo — this is their undo button and
+   audit trail. The daemon performs the commit for you; your sandbox cannot
+   write to `.git` directly, so do not try `git commit` yourself.
 
 You never make these edits unprompted. A behaviour change without an owner
 request in this conversation is a bug, not initiative.

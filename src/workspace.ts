@@ -115,6 +115,27 @@ function isSymlink(p: string): boolean {
 }
 
 /**
+ * Commit current workspace changes with the given message. Called by the
+ * control server on the agent's behalf: the Codex sandbox blocks writes to
+ * .git (verified live), so the agent authors the message but the daemon —
+ * outside the sandbox — performs the write. Same principle as the scheduler:
+ * the daemon owns the history, not the model.
+ */
+export function commitWorkspace(ws: string, message: string): { committed: boolean; detail: string } {
+  const git = (args: string) => execSync(`git -C "${ws}" ${args}`, { stdio: 'pipe' }).toString();
+  if (!existsSync(join(ws, '.git'))) {
+    return { committed: false, detail: 'workspace is not a git repo (restart pepperd to initialise it)' };
+  }
+  if (git('status --porcelain').trim().length === 0) {
+    return { committed: false, detail: 'nothing to commit' };
+  }
+  git('add -A');
+  execSync(`git -C "${ws}" commit -q -F -`, { input: message, stdio: ['pipe', 'pipe', 'pipe'] });
+  const hash = git('rev-parse --short HEAD').trim();
+  return { committed: true, detail: `committed ${hash}: ${message.split('\n')[0] ?? message}` };
+}
+
+/**
  * The workspace is a standalone, LOCAL-ONLY git repo: behaviour edits become
  * commits (audit + undo). No remote is ever configured here — this history
  * contains the owner's memory and rules and must never leave the box unless

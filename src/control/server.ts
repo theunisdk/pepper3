@@ -14,6 +14,7 @@ import {
   setEnabled,
   updateJob,
 } from '../scheduler/jobs.js';
+import { commitWorkspace } from '../workspace.js';
 import type { ControlRequest, ControlResponse } from './protocol.js';
 import type { JobMode } from '../db.js';
 
@@ -167,6 +168,12 @@ export class ControlServer {
               `${fmt(r.scheduled_for)} — ${r.status}${r.late ? ' (late)' : ''}${r.summary ? `: ${r.summary.slice(0, 120)}` : ''}`,
           );
           return { ok: true, text: lines.join('\n'), data: runs };
+        }
+
+        case 'workspace.commit': {
+          const message = str(a.message, 'message');
+          const r = commitWorkspace(this.deps.cfg.workspacePath, message);
+          return { ok: true, text: r.detail, data: r };
         }
 
         default:

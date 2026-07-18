@@ -70,3 +70,26 @@ describe('initWorkspace', () => {
     expect(existsSync(join(cfg.workspacePath, 'SOUL.md'))).toBe(true);
   });
 });
+
+describe('commitWorkspace', () => {
+  it('commits drift with the agent-authored message and reports the hash', async () => {
+    const { commitWorkspace } = await import('../src/workspace.js');
+    const cfg = cfgIn(mkdtempSync(join(tmpdir(), 'ws-')));
+    initWorkspace(cfg);
+    writeFileSync(join(cfg.workspacePath, 'SOUL.md'), '# Soul\n- new rule');
+
+    const r = commitWorkspace(cfg.workspacePath, 'add a new rule');
+    expect(r.committed).toBe(true);
+    expect(r.detail).toContain('add a new rule');
+    expect(gitLog(cfg.workspacePath)).toContain('add a new rule');
+  });
+
+  it('reports nothing-to-commit on a clean tree without creating a commit', async () => {
+    const { commitWorkspace } = await import('../src/workspace.js');
+    const cfg = cfgIn(mkdtempSync(join(tmpdir(), 'ws-')));
+    initWorkspace(cfg);
+    const r = commitWorkspace(cfg.workspacePath, 'noop');
+    expect(r.committed).toBe(false);
+    expect(gitLog(cfg.workspacePath).split('\n')).toHaveLength(1);
+  });
+});

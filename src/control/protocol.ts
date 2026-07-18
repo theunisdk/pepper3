@@ -23,6 +23,7 @@ export const CONTROL_COMMANDS = [
   'cron.pause',
   'cron.resume',
   'runs',
+  'workspace.commit',
 ] as const;
 
 export type ControlCommand = (typeof CONTROL_COMMANDS)[number];
