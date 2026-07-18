@@ -23,6 +23,13 @@ export interface PepperConfig {
   dailyNoteDays: number;
   /** Fire a missed recurring occurrence if the daemon restarts within this window. */
   cronGraceMs: number;
+  /**
+   * Extra directories the agent's sandboxed shell may write to, beyond the
+   * workspace. Needed by tools that persist state in $HOME — e.g. gws writes
+   * refreshed OAuth tokens to its config dir; without this the tool works at
+   * setup time and dies days later when a headless token refresh can't persist.
+   */
+  sandboxWritableRoots: string[];
 }
 
 const DEFAULTS = {
@@ -85,6 +92,17 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
   const codexHome = absolutise(str(c.codexHome, env.PEPPER_CODEX_HOME) ?? '~/pepper/codex-home');
   const dbPath = absolutise(str(c.dbPath, env.PEPPER_DB) ?? '~/pepper/pepper.sqlite');
 
+  const rootsRaw = c.sandboxWritableRoots ?? [];
+  if (!Array.isArray(rootsRaw)) {
+    throw new ConfigError('sandboxWritableRoots must be an array of directory paths.');
+  }
+  const sandboxWritableRoots = rootsRaw.map((v) => {
+    if (typeof v !== 'string' || !v.trim()) {
+      throw new ConfigError(`sandboxWritableRoots entries must be non-empty strings; got ${JSON.stringify(v)}`);
+    }
+    return absolutise(v.trim());
+  });
+
   const timezone = str(c.timezone, env.PEPPER_TZ) ?? DEFAULTS.timezone;
   assertTimezone(timezone);
 
@@ -98,6 +116,7 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
     dbPath,
     dailyNoteDays: num(c.dailyNoteDays) ?? DEFAULTS.dailyNoteDays,
     cronGraceMs: num(c.cronGraceMs) ?? DEFAULTS.cronGraceMs,
+    sandboxWritableRoots,
   };
   const model = str(c.model, env.PEPPER_MODEL);
   if (model) cfg.model = model;

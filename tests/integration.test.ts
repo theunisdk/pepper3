@@ -39,6 +39,7 @@ describe('control socket + scheduler', () => {
       dbPath: ':memory:',
       dailyNoteDays: 2,
       cronGraceMs: 60_000,
+      sandboxWritableRoots: [],
     };
 
     server = new ControlServer(sock, {
