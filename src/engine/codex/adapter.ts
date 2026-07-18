@@ -25,6 +25,25 @@ export interface CodexEngineOptions {
 const CONTEXT_PATTERNS = [/context.{0,20}(window|length|limit).{0,20}exceed/i, /context_window_exceeded/i, /too many tokens/i];
 const TRANSIENT_PATTERNS = [/ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN/i, /\b(429|500|502|503|504)\b/, /timed? ?out/i];
 
+/** The sandbox/approval posture for every thread. Pure so tests can see it. */
+export function buildThreadOptions(
+  opts: Pick<CodexEngineOptions, 'workspacePath' | 'model' | 'additionalDirectories'>,
+): ThreadOptions {
+  const threadOptions: ThreadOptions = {
+    workingDirectory: opts.workspacePath,
+    skipGitRepoCheck: true,
+    sandboxMode: 'workspace-write',
+    // Unattended by definition: there is no human at a prompt to approve a
+    // tool call at 03:00. The box is single-owner and the workspace (plus any
+    // configured writable roots) is the blast radius.
+    approvalPolicy: 'never',
+    networkAccessEnabled: true,
+  };
+  if (opts.model) threadOptions.model = opts.model;
+  if (opts.additionalDirectories?.length) threadOptions.additionalDirectories = opts.additionalDirectories;
+  return threadOptions;
+}
+
 /**
  * Wraps the Codex SDK. Everything Codex-specific lives behind the Engine
  * interface: thread bookkeeping, sandbox posture, and — critically — the rule
@@ -57,18 +76,7 @@ export class CodexEngine implements Engine {
       env: env as Record<string, string>,
     });
 
-    this.threadOptions = {
-      workingDirectory: opts.workspacePath,
-      skipGitRepoCheck: true,
-      sandboxMode: 'workspace-write',
-      // Unattended by definition: there is no human at a prompt to approve a
-      // tool call at 03:00. The box is single-owner and the workspace is the
-      // blast radius.
-      approvalPolicy: 'never',
-      networkAccessEnabled: true,
-    };
-    if (opts.model) this.threadOptions.model = opts.model;
-    if (opts.additionalDirectories?.length) this.threadOptions.additionalDirectories = opts.additionalDirectories;
+    this.threadOptions = buildThreadOptions(opts);
   }
 
   async health(): Promise<EngineHealth> {

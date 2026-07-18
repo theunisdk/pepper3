@@ -31,6 +31,7 @@ async function main(): Promise<void> {
     workspacePath: cfg.workspacePath,
     codexHome: cfg.codexHome,
     ...(cfg.model ? { model: cfg.model } : {}),
+    ...(cfg.sandboxWritableRoots.length ? { additionalDirectories: cfg.sandboxWritableRoots } : {}),
   });
 
   const health = await engine.health();
