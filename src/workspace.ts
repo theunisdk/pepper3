@@ -1,6 +1,7 @@
-import { cpSync, existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
+import { chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 import { logger } from './logger.js';
 import type { PepperConfig } from './config.js';
 
@@ -46,6 +47,26 @@ export function initWorkspace(cfg: PepperConfig): WorkspaceStatus {
   }
   mkdirSync(cfg.codexHome, { recursive: true });
 
+  // Existing workspaces predate SOUL.md: create it from the template so the
+  // self-edit protocol always has its target file.
+  const soulPath = join(cfg.workspacePath, 'SOUL.md');
+  if (!existsSync(soulPath)) {
+    const templateSoul = join(templateDir(), 'SOUL.md');
+    if (existsSync(templateSoul)) {
+      copyFileSync(templateSoul, soulPath);
+      logger.info({ soulPath }, 'created SOUL.md from template');
+    }
+  }
+
+  // AGENTS.md is mechanical and not the agent's to edit. 0444 is an accident
+  // barrier (file tools fail on write), not a security boundary — the agent
+  // owns the file and chmod is not sandbox-governed. The workspace git history
+  // below is the detection layer.
+  const agentsPath = join(cfg.workspacePath, 'AGENTS.md');
+  if (existsSync(agentsPath)) chmodSync(agentsPath, 0o444);
+
+  initWorkspaceGit(cfg.workspacePath);
+
   const { linked, detail } = linkSkills(cfg);
   return { created, skillsLinked: linked, skillsDetail: detail };
 }
@@ -81,5 +102,35 @@ function isSymlink(p: string): boolean {
     return lstatSync(p).isSymbolicLink();
   } catch {
     return false;
+  }
+}
+
+/**
+ * The workspace is a standalone, LOCAL-ONLY git repo: behaviour edits become
+ * commits (audit + undo). No remote is ever configured here — this history
+ * contains the owner's memory and rules and must never leave the box unless
+ * the owner adds a private remote themselves.
+ */
+function initWorkspaceGit(ws: string): void {
+  const git = (args: string) => execSync(`git -C "${ws}" ${args}`, { stdio: 'pipe' }).toString();
+  try {
+    if (!existsSync(join(ws, '.git'))) {
+      git('init -q');
+      // Repo-local identity so commits never depend on global git config.
+      git('config user.name Pepper');
+      git('config user.email pepper@localhost');
+      git('add -A');
+      git('commit -q -m "workspace created"');
+      logger.info({ ws }, 'initialised local workspace git repo');
+      return;
+    }
+    if (git('status --porcelain').trim().length > 0) {
+      git('add -A');
+      git('commit -q -m "uncommitted workspace changes found at startup"');
+      logger.info({ ws }, 'committed workspace drift found at startup');
+    }
+  } catch (e) {
+    // Never let bookkeeping stop the assistant from starting.
+    logger.warn({ ws, err: (e as Error).message }, 'workspace git bookkeeping failed');
   }
 }
