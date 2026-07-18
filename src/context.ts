@@ -8,7 +8,8 @@ import type { PepperConfig } from './config.js';
  *
  * Durable knowledge lives on disk, not in the model's context window, and is
  * re-injected whenever a thread starts. A reset therefore costs recent
- * conversational nuance and nothing else — MEMORY.md comes straight back.
+ * conversational nuance and nothing else — SOUL.md and MEMORY.md come straight
+ * back.
  */
 
 export interface StandingContext {
@@ -75,8 +76,9 @@ export function dailyNotePaths(cfg: PepperConfig, at: Date = new Date()): string
 /**
  * Assemble the block prefixed to the first turn of a new thread.
  *
- * Budget rule: MEMORY.md is never truncated — it is the durable layer and
- * dropping it would recreate the amnesia this exists to prevent. Under
+ * Budget rule: SOUL.md and MEMORY.md are never truncated — they are the
+ * durable layer and dropping them would recreate the amnesia this exists to
+ * prevent. Under
  * pressure we drop the oldest daily note first, then trim today's note from
  * the *top*, so the most recent working state always survives.
  */

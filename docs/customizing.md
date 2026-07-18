@@ -9,7 +9,7 @@ capabilities — is plain files in the workspace. One mechanism, five layers:
 | Durable facts about you | `MEMORY.md` | next `/new` |
 | This week's context | `notes/YYYY-MM-DD.md` | next `/new` |
 | A repeatable procedure | `skills/<name>/SKILL.md` | body edits: next message; **new** skills: next `/new` |
-| A capability | executable in `tools/` + a line in `SOUL.md` | next message |
+| A capability | executable in `tools/` + a line in `SOUL.md` | tool: next message (SOUL.md line: next `/new`) |
 
 `AGENTS.md` is deliberately **not** on this list: it holds the mechanical rules
 (only-final-response, confirmations, safety) and is made read-only at startup.

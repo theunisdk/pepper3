@@ -58,6 +58,15 @@ export function initWorkspace(cfg: PepperConfig): WorkspaceStatus {
     }
   }
 
+  // Migrated workspaces also predate the workspace .gitignore; without it a
+  // stale run/ socket can make the startup drift-sweep commit nothing and log
+  // a spurious failure.
+  const ignorePath = join(cfg.workspacePath, '.gitignore');
+  if (!existsSync(ignorePath)) {
+    const templateIgnore = join(templateDir(), '.gitignore');
+    if (existsSync(templateIgnore)) copyFileSync(templateIgnore, ignorePath);
+  }
+
   // AGENTS.md is mechanical and not the agent's to edit. 0444 is an accident
   // barrier (file tools fail on write), not a security boundary — the agent
   // owns the file and chmod is not sandbox-governed. The workspace git history
