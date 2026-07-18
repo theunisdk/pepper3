@@ -33,5 +33,6 @@ export function runLogin(cfg: PepperConfig, opts: LoginOptions): number {
     return 0;
   }
   process.stderr.write(`❌ ${health.detail ?? 'not authenticated'}\n`);
-  return result.status ?? 1;
+  // Exit 0 only when authenticated — even if the codex subprocess exited 0.
+  return result.status || 1;
 }
