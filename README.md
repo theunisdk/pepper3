@@ -106,10 +106,12 @@ This is the part that matters — the rest is scaffolding for it.
 
 | You want to… | Edit |
 |---|---|
-| Change its personality, tone, rules | `workspace/AGENTS.md` |
+| Change its personality, tone, rules | `workspace/SOUL.md` — or just tell it in chat |
 | Tell it durable facts about you | `workspace/MEMORY.md` |
 | Teach it a repeatable job | a new `workspace/skills/<name>/SKILL.md` |
 | Give it a new capability | an executable in `workspace/tools/` |
+
+Full guide, including managing it all from Telegram: [docs/customizing.md](docs/customizing.md).
 
 Start with **[docs/authoring-skills.md](docs/authoring-skills.md)** — it walks
 through building a daily check-in skill, which is the shape most personal
@@ -125,6 +127,7 @@ Delete `workspace/skills/example-skill/` once you've seen it work.
 | `/jobs` | Scheduled jobs and their next run times |
 | `/new` | Fresh thread (memory and notes reload from disk) |
 | `/cancel` | Stop the turn in flight |
+| `/soul` | Show the current SOUL.md (your rules and identity) |
 
 Everything else goes to the model.
 

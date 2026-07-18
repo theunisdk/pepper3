@@ -14,7 +14,7 @@ export interface GatewayDeps {
   onOwnerChat: (chatId: number) => void;
 }
 
-const COMMANDS = ['new', 'status', 'jobs', 'cancel'] as const;
+const COMMANDS = ['new', 'status', 'jobs', 'cancel', 'soul'] as const;
 
 /**
  * Telegram in, replies out. Long-polling, so the box needs no inbound port and

@@ -58,6 +58,7 @@ Each of these prevents a specific, named bug. Changing them reintroduces it.
 - **Auth health is computed, not queried.** `checkAuth` ([src/engine/codex/auth.ts](src/engine/codex/auth.ts)) decodes the JWT `exp` from `auth.json` itself. Do not shell out to `codex login status` — it reports "logged in" for long-dead credentials (see spike findings).
 - **The control socket lives inside the workspace.** `workspace/run/pepperd.sock`, not `/run`. The agent's shell runs in Codex's workspace-scoped sandbox; a socket outside it may be unreachable. `pepperctl` ([src/pepperctl.ts](src/pepperctl.ts)) is a CLI, not an MCP server, because headless MCP tool-approval stalls (see spike findings).
 - **Skills are a symlink, not a copy.** On startup `initWorkspace` ([src/workspace.ts](src/workspace.ts)) symlinks `$CODEX_HOME/skills` → `workspace/skills`, so an edited skill is live on the next turn with no sync step.
+- **SOUL.md is the owner-editable layer; AGENTS.md is mechanical and read-only.** `SOUL.md` loads via standing context (never truncated, like `MEMORY.md`); `initWorkspace` chmods `AGENTS.md` to 0444 (accident barrier, not a security boundary — the workspace's local git history is the detection layer). The workspace git repo must never get a remote from our code.
 
 ### Template vs. runtime
 

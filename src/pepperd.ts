@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { loadConfig, requireBotToken, socketPath, type PepperConfig } from './config.js';
 import { getMeta, openDb, setMeta, clearThread } from './db.js';
 import { logger } from './logger.js';
@@ -109,6 +110,11 @@ async function main(): Promise<void> {
           return renderJobs(db);
         case 'status':
           return await renderStatus(cfg, db, engine, startedAt, queue.depth, ws.skillsLinked, ws.skillsDetail);
+        case 'soul': {
+          const soulPath = join(cfg.workspacePath, 'SOUL.md');
+          if (!existsSync(soulPath)) return 'No SOUL.md yet — restart pepperd to create it from the template.';
+          return readFileSync(soulPath, 'utf8');
+        }
         default:
           return `Unknown command: ${cmd}`;
       }
