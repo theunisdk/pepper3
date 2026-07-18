@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { loadConfig, socketPath } from './config.js';
 import { callControl } from './control/client.js';
 import type { ControlRequest } from './control/protocol.js';
+import { runLogin } from './cli/login.js';
 
 /**
  * The agent's hands on the daemon.
@@ -23,6 +24,7 @@ const USAGE = `pepperctl — control the running pepperd
   pepperctl cron update --name <n> [--cron '<expr>'|--at <iso>] [--prompt <t>] [--mode m] [--tz z]
   pepperctl cron rm|pause|resume --name <n>
   pepperctl runs --name <n> [--limit N]
+  pepperctl login [--device-auth]             Log in to Codex against Pepper's CODEX_HOME
 
 Modes:
   main      (default) Ask on the owner's own thread; their reply continues it.
@@ -122,6 +124,11 @@ async function main(): Promise<void> {
   if (argv.length === 0 || argv[0] === '-h' || argv[0] === '--help') {
     process.stdout.write(USAGE);
     return;
+  }
+
+  if (argv[0] === 'login') {
+    const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));
+    process.exit(runLogin(cfg, { deviceAuth: argv.includes('--device-auth') }));
   }
 
   const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));
