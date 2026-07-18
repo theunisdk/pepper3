@@ -83,6 +83,31 @@ describe('buildStandingContext', () => {
     expect(ctx.text).toContain('NEWEST');
     expect(ctx.text).not.toContain('OLDEST');
   });
+
+  it('includes SOUL.md before MEMORY.md', () => {
+    const cfg = ws();
+    writeFileSync(join(cfg.workspacePath, 'SOUL.md'), '# Soul\n- reply in haiku');
+    writeFileSync(join(cfg.workspacePath, 'MEMORY.md'), '- likes tea');
+    const ctx = buildStandingContext(cfg, new Date('2026-07-16T09:00:00Z'));
+    expect(ctx.text).toContain('reply in haiku');
+    expect(ctx.text.indexOf('reply in haiku')).toBeLessThan(ctx.text.indexOf('likes tea'));
+  });
+
+  it('never truncates SOUL.md under budget pressure', () => {
+    const cfg = { ...ws(), standingContextBudget: 2000 };
+    const soul = '# Soul\n' + 'S'.repeat(3000);
+    writeFileSync(join(cfg.workspacePath, 'SOUL.md'), soul);
+    writeFileSync(join(cfg.workspacePath, 'notes', '2026-07-16.md'), 'N'.repeat(3000));
+    const ctx = buildStandingContext(cfg, new Date('2026-07-16T09:00:00Z'));
+    expect(ctx.text).toContain('S'.repeat(3000));
+    expect(ctx.truncated).toBe(true);
+  });
+
+  it('is non-empty when only SOUL.md exists', () => {
+    const cfg = ws();
+    writeFileSync(join(cfg.workspacePath, 'SOUL.md'), '# Soul\n- a rule');
+    expect(buildStandingContext(cfg).text).toContain('a rule');
+  });
 });
 
 describe('firstTurnInput', () => {

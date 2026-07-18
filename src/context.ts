@@ -83,6 +83,10 @@ export function dailyNotePaths(cfg: PepperConfig, at: Date = new Date()): string
 export function buildStandingContext(cfg: PepperConfig, at: Date = new Date()): StandingContext {
   const files: string[] = [];
 
+  const soulPath = join(cfg.workspacePath, 'SOUL.md');
+  const soul = readIfPresent(soulPath);
+  if (soul?.trim()) files.push(soulPath);
+
   const memoryPath = join(cfg.workspacePath, 'MEMORY.md');
   const memory = readIfPresent(memoryPath);
   if (memory?.trim()) files.push(memoryPath);
@@ -96,7 +100,7 @@ export function buildStandingContext(cfg: PepperConfig, at: Date = new Date()): 
   // A brand-new workspace has nothing to say. Emitting the header over an empty
   // body would tell the model "here is the durable truth about your owner" and
   // then show it nothing — noise at best, misleading at worst.
-  if (!memory?.trim() && notes.length === 0) {
+  if (!soul?.trim() && !memory?.trim() && notes.length === 0) {
     return { text: '', truncated: false, files: [] };
   }
 
@@ -104,9 +108,10 @@ export function buildStandingContext(cfg: PepperConfig, at: Date = new Date()): 
     'The following is your standing context, loaded from disk at the start of this thread. ' +
     'It is the durable truth about your owner and your recent work. Treat it as authoritative.';
 
+  const soulBlock = soul?.trim() ? `\n\n## SOUL.md (your identity and standing rules — follow these)\n\n${soul.trim()}` : '';
   const memBlock = memory?.trim() ? `\n\n## MEMORY.md (durable — never invent changes to this)\n\n${memory.trim()}` : '';
 
-  let budgetLeft = cfg.standingContextBudget - header.length - memBlock.length;
+  let budgetLeft = cfg.standingContextBudget - header.length - soulBlock.length - memBlock.length;
   let truncated = false;
   const noteBlocks: string[] = [];
 
@@ -137,11 +142,11 @@ export function buildStandingContext(cfg: PepperConfig, at: Date = new Date()): 
   if (truncated) {
     logger.warn(
       { budget: cfg.standingContextBudget },
-      'standing context exceeded its budget — daily notes were trimmed (MEMORY.md was not)',
+      'standing context exceeded its budget — daily notes were trimmed (SOUL.md and MEMORY.md were not)',
     );
   }
 
-  const text = `${header}${memBlock}${noteBlocks.join('')}`.trim();
+  const text = `${header}${soulBlock}${memBlock}${noteBlocks.join('')}`.trim();
   return { text, truncated, files };
 }
 
