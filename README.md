@@ -113,6 +113,9 @@ This is the part that matters — the rest is scaffolding for it.
 
 Full guide, including managing it all from Telegram: [docs/customizing.md](docs/customizing.md).
 
+Pairing Pepper with a data-ingestion layer (email/calendar awareness without
+giving the assistant raw access): [docs/context-feeds.md](docs/context-feeds.md).
+
 Start with **[docs/authoring-skills.md](docs/authoring-skills.md)** — it walks
 through building a daily check-in skill, which is the shape most personal
 automations turn out to have.

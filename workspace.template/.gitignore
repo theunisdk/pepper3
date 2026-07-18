@@ -1,2 +1,5 @@
 # Runtime; never part of the workspace's behaviour history.
 run/
+
+# Delivered context feeds (data, not behaviour — see docs/context-feeds.md)
+context/
