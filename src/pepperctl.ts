@@ -5,6 +5,7 @@ import { callControl } from './control/client.js';
 import type { ControlRequest } from './control/protocol.js';
 import { runLogin } from './cli/login.js';
 import { runDoctor } from './cli/doctor.js';
+import { runGoogle } from './cli/google.js';
 
 /**
  * The agent's hands on the daemon.
@@ -27,6 +28,7 @@ const USAGE = `pepperctl — control the running pepperd
   pepperctl runs --name <n> [--limit N]
   pepperctl login [--device-auth]             Log in to Codex against Pepper's CODEX_HOME
   pepperctl doctor                            Health checks: auth, skills link, daemon, roots
+  pepperctl google [--token-dir <p>] [gws args] Connect Google: gws auth + sandbox writable root
 
 Modes:
   main      (default) Ask on the owner's own thread; their reply continues it.
@@ -136,6 +138,12 @@ async function main(): Promise<void> {
   if (argv[0] === 'doctor') {
     const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));
     process.exit(await runDoctor(cfg));
+  }
+
+  if (argv[0] === 'google') {
+    const configPath = resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json');
+    loadConfig(configPath); // fail fast with ConfigError guidance if absent/invalid
+    process.exit(runGoogle(configPath, argv.slice(1)));
   }
 
   const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));
