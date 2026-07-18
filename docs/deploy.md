@@ -79,7 +79,7 @@ aws ssm start-session --region <region> --target <instance_id>
 
 sudo -u pepper -i
 cd ~/app
-CODEX_HOME=~/pepper/codex-home npx @openai/codex login --device-auth
+PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js login --device-auth
 ```
 
 You get a URL and a code. Open them on any device, approve, done.
@@ -88,6 +88,10 @@ You get a URL and a code. Open them on any device, approve, done.
 exit
 sudo systemctl restart pepperd
 ```
+
+(`login` reads `codexHome` from the config, runs the SDK's own vendored codex
+binary, and verifies the credentials by decoding the token itself — no
+`CODEX_HOME` juggling, no trusting `codex login status`.)
 
 ### Why not store `auth.json` in Parameter Store?
 
@@ -113,6 +117,12 @@ cd ~/app && CODEX_HOME=~/pepper/codex-home npm run spike
 The spike proves the thing that actually matters for unattended operation: that
 Codex will run shell tools **without stalling for an approval nobody is there to
 give**. If it fails, jobs will hang at 03:00 and you won't know why.
+
+Or run every health check at once:
+
+```bash
+PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js doctor
+```
 
 Then message your bot:
 

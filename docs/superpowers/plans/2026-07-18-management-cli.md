@@ -818,12 +818,12 @@ node dist/pepperctl.js doctor   # health checks: auth, skills link, daemon, writ
 
 - [ ] **Step 2: deploy.md — login via pepperctl**
 
-In `docs/deploy.md`, section "## 4. Log Pepper in to Codex", replace:
+In `docs/deploy.md`, section "## 4. Log Pepper in to Codex", the current instruction is:
 
 ```bash
 sudo -u pepper -i
 cd ~/app
-CODEX_HOME=~/pepper/codex-home npx @openai/codex login --device-auth
+PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js login --device-auth
 ```
 
 with:
@@ -869,13 +869,7 @@ remain as the fallback.
 
 - [ ] **Step 4: Terraform MOTD**
 
-In `terraform/modules/pepper/user_data/init.sh.tftpl`, in the MOTD heredoc, replace:
-
-```
-  CODEX_HOME=~/pepper/codex-home npx @openai/codex login --device-auth
-```
-
-with:
+In `terraform/modules/pepper/user_data/init.sh.tftpl`, in the MOTD heredoc, the current instruction is:
 
 ```
   PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js login --device-auth

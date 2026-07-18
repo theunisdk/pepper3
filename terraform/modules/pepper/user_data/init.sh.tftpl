@@ -256,7 +256,7 @@ ONE-TIME SETUP — Pepper cannot think until you log it in to Codex:
 
   sudo -u PEPPER_USER -i
   cd ~/app
-  CODEX_HOME=~/pepper/codex-home npx @openai/codex login --device-auth
+  PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js login --device-auth
   # follow the URL + code on any browser, then:
   exit
   sudo systemctl restart pepperd

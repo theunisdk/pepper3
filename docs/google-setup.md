@@ -76,6 +76,15 @@ gws auth login --client-secret ~/pepper/google_client_secret.json
 
 It prints a URL. Open it anywhere, approve, paste the code back.
 
+Or let Pepper do this step and the next one together:
+
+    PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js google \
+      --client-secret ~/pepper/google_client_secret.json
+
+`pepperctl google` runs the gws login, finds the token directory, adds it to
+`sandboxWritableRoots`, and reminds you to restart. The manual steps below
+remain as the fallback.
+
 Then tell Pepper's sandbox it may write where gws keeps its tokens — otherwise
 gws works now and dies in days when a headless token refresh can't persist.
 Find the directory with `gws auth status` (or check `~/.config/gws*`), add it to

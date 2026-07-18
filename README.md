@@ -72,18 +72,15 @@ Try it on your laptop before paying AWS anything.
 
 ```bash
 git clone https://github.com/theunisdk/pepper3.git && cd pepper3
-npm install
+npm install && npm run build
+node dist/pepperctl.js setup       # writes pepper.config.json, offers Codex login
 
-cp pepper.config.example.json pepper.config.json
-# edit: set ownerTelegramIds to your numeric Telegram ID, and your timezone
-
-export TELEGRAM_BOT_TOKEN='123456:ABC...'          # from @BotFather
-export CODEX_HOME="$PWD/.codex-home"                # keep Pepper's login separate
-npx @openai/codex login                             # your ChatGPT subscription
-
-npm run spike     # verify Codex will run tools headlessly — do this first
-npm run build && npm start
+export TELEGRAM_BOT_TOKEN='123456:ABC...'      # from @BotFather
+CODEX_HOME=~/pepper/codex-home npm run spike   # verify headless tool-use — do this first
+npm start
 ```
+
+If anything misbehaves: `node dist/pepperctl.js doctor` runs every health check at once.
 
 Message your bot. Try `/status`, then *"remind me in two minutes to stretch"*.
 
@@ -155,6 +152,7 @@ npm test          # unit tests — no Codex needed
 npm run typecheck
 npm run spike     # integration test against real Codex (needs a login)
 npm run audit     # fails if anything identifying is about to be published
+node dist/pepperctl.js doctor   # health checks: auth, skills link, daemon, writable roots
 ```
 
 ## Security posture

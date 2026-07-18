@@ -56,7 +56,7 @@ output "next_steps" {
     3. Log Pepper in to Codex (interactive, one-time — it cannot think until you do):
          aws ssm start-session --region ${data.aws_region.current.name} --target ${aws_instance.pepper.id}
          sudo -u ${var.pepper_user} -i
-         cd ~/app && CODEX_HOME=~/pepper/codex-home npx @openai/codex login --device-auth
+         cd ~/app && PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js login --device-auth
          exit && sudo systemctl restart pepperd
 
     Then message your bot on Telegram. Verify with: npm run spike
