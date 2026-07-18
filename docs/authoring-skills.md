@@ -14,8 +14,11 @@ workspace/skills/
 
 `pepperd` symlinks `$CODEX_HOME/skills` to your `workspace/skills/` at startup,
 and that's where Codex looks for them. **The directory you edit is the directory
-it reads** — no copy, no sync, no restart. Save the file, send a message, it's
-in effect.
+it reads** — no copy, no sync, no restart. Edits to an existing skill are in
+effect on the next message. One nuance, observed live: the *list* of skills is
+snapshotted when a thread starts, so a **brand-new** skill isn't visible to an
+already-running conversation — send `/new` after creating one (scheduled
+isolated jobs always get fresh threads, so they see it immediately).
 
 ## The anatomy
 
@@ -135,6 +138,10 @@ A tool your assistant doesn't know about is a tool it will never use. The
 **It ignored my skill.** Almost always the `description`: it didn't read as
 relevant to what you said. Rewrite it as a trigger with the words you actually
 use. Check `/status` shows skills linked.
+
+**It ignored my *brand-new* skill mid-conversation.** Skills are discovered at
+thread start. Send `/new` and ask again — if it works on the fresh thread, the
+skill is fine; your old thread just predated it.
 
 **It fired at the wrong time.** `pepperctl cron list` shows the timezone each
 job uses. Cron is evaluated in the job's `tz`, not the server's.
