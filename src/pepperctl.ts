@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { loadConfig, socketPath } from './config.js';
 import { callControl } from './control/client.js';
 import type { ControlRequest } from './control/protocol.js';
+import { runSetup } from './cli/setup.js';
 import { runLogin } from './cli/login.js';
 import { runDoctor } from './cli/doctor.js';
 import { runGoogle } from './cli/google.js';
@@ -16,8 +17,9 @@ import { runGoogle } from './cli/google.js';
  * trivially testable and readable in the logs.
  */
 
-const USAGE = `pepperctl — control the running pepperd
+const USAGE = `pepperctl — control and manage Pepper
 
+Daemon control (talks to the running pepperd):
   pepperctl status
   pepperctl send <text>                       Message the owner proactively
   pepperctl cron list [--all]
@@ -26,6 +28,9 @@ const USAGE = `pepperctl — control the running pepperd
   pepperctl cron update --name <n> [--cron '<expr>'|--at <iso>] [--prompt <t>] [--mode m] [--tz z]
   pepperctl cron rm|pause|resume --name <n>
   pepperctl runs --name <n> [--limit N]
+
+Management (local, work without the daemon):
+  pepperctl setup [--owner-id N] [--tz Z] [--force] [--no-login]   First-run config wizard
   pepperctl login [--device-auth]             Log in to Codex against Pepper's CODEX_HOME
   pepperctl doctor                            Health checks: auth, skills link, daemon, roots
   pepperctl google [--token-dir <p>] [gws args] Connect Google: gws auth + sandbox writable root
@@ -128,6 +133,11 @@ async function main(): Promise<void> {
   if (argv.length === 0 || argv[0] === '-h' || argv[0] === '--help') {
     process.stdout.write(USAGE);
     return;
+  }
+
+  if (argv[0] === 'setup') {
+    const configPath = resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json');
+    process.exit(await runSetup(configPath, argv.slice(1)));
   }
 
   if (argv[0] === 'login') {
