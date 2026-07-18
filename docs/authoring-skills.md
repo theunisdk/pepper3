@@ -2,6 +2,10 @@
 
 A skill is a folder with a `SKILL.md` in it. That's the whole mechanism.
 
+The template ships a real one to crib from: `workspace/skills/google/SKILL.md`
+(calendar + email via the gws CLI) — a worked example of trigger-shaped
+descriptions, tool recipes, and confirmation rules.
+
 ```
 workspace/skills/
   daily-checkin/

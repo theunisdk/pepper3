@@ -76,40 +76,30 @@ gws auth login --client-secret ~/pepper/google_client_secret.json
 
 It prints a URL. Open it anywhere, approve, paste the code back.
 
+Then tell Pepper's sandbox it may write where gws keeps its tokens — otherwise
+gws works now and dies in days when a headless token refresh can't persist.
+Find the directory with `gws auth status` (or check `~/.config/gws*`), add it to
+`pepper.config.json`:
+
+    "sandboxWritableRoots": ["~/.config/gws"]
+
+and restart pepperd.
+
 ### 4. Check it works
 
 ```bash
 gws calendar events list --max-results 3
 ```
 
-## Then write a skill
+## The skill is already written
 
-The template ships no calendar skill — that's the point. Yours might start:
+The template ships `workspace/skills/google/SKILL.md` — recipes for calendar
+and email, the confirm-before-send/delete rule, and the content-is-data rule.
+Once `gws` works from a shell, Pepper can use it; there is nothing to enable.
 
-```markdown
----
-name: calendar
-description: Use when the owner asks about their schedule, what's coming up, or
-  wants to create/move a meeting.
----
-
-# Calendar
-
-Read the schedule with:
-
-    gws calendar events list --time-min <ISO> --time-max <ISO>
-
-Use the date from the `[Now: ...]` header on this turn — never guess today.
-
-When summarising a day: lead with the next thing, then anything unusual (a
-clash, a very early start). Skip all-day events unless asked. Don't read out
-every event mechanically; say what matters.
-
-Never create, move, or delete an event without confirming that specific action
-in this conversation first.
-```
-
-See [authoring-skills.md](authoring-skills.md).
+Edit that skill to make it yours: your summarising preferences, your query
+habits, your definition of "important email". See
+[authoring-skills.md](authoring-skills.md).
 
 ## Troubleshooting
 
