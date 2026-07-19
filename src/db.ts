@@ -75,6 +75,22 @@ CREATE TABLE IF NOT EXISTS runs (
 -- constraint, so they can never both run the same occurrence.
 CREATE UNIQUE INDEX IF NOT EXISTS runs_occurrence ON runs(job_id, scheduled_for);
 CREATE INDEX IF NOT EXISTS runs_by_job ON runs(job_id, scheduled_for DESC);
+
+-- Owner todo list. IDs are daemon-assigned (rendered "T<id>"); AUTOINCREMENT
+-- guarantees numbers are never reused. source_id links a todo to the feed item
+-- it came from — UNIQUE makes re-triaging the same item a structural no-op.
+CREATE TABLE IF NOT EXISTS todos (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  title      TEXT NOT NULL,
+  context    TEXT NOT NULL DEFAULT 'unclassified',
+  status     TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done','dropped')),
+  source_id  TEXT UNIQUE,
+  due_date   TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  closed_at  INTEGER
+);
+CREATE INDEX IF NOT EXISTS todos_by_status ON todos(status, context);
 `;
 
 export function openDb(dbPath: string): Database.Database {
