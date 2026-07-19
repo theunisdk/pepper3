@@ -37,7 +37,7 @@ describe('addTodo', () => {
 
   it('dedups by source_id: same source returns the existing todo, created=false', () => {
     const d = db();
-    const first = addTodo(d, { title: 'Reply to Jacques', sourceId: 'acct:MSG1', context: 'noldor' });
+    const first = addTodo(d, { title: 'Reply to Alex', sourceId: 'acct:MSG1', context: 'alpha' });
     const again = addTodo(d, { title: 'different title, same item', sourceId: 'acct:MSG1' });
     expect(again.created).toBe(false);
     expect(again.todo.id).toBe(first.todo.id);
@@ -90,23 +90,23 @@ describe('status transitions', () => {
 describe('listTodos', () => {
   it('defaults to open only; filters by status and context', () => {
     const d = db();
-    addTodo(d, { title: 'open-noldor', context: 'noldor' });
-    const done = addTodo(d, { title: 'done-serova', context: 'serova' }).todo;
+    addTodo(d, { title: 'open-alpha', context: 'alpha' });
+    const done = addTodo(d, { title: 'done-beta', context: 'beta' }).todo;
     setStatus(d, tId(done), 'done');
     expect(listTodos(d, {})).toHaveLength(1);
     expect(listTodos(d, { status: 'all' })).toHaveLength(2);
     expect(listTodos(d, { status: 'done' })).toHaveLength(1);
-    expect(listTodos(d, { context: 'noldor' })).toHaveLength(1);
+    expect(listTodos(d, { context: 'alpha' })).toHaveLength(1);
   });
 });
 
 describe('updateTodo', () => {
   it('patches title/context/due and bumps updated_at', () => {
     const d = db();
-    const t = addTodo(d, { title: 'old', context: 'noldor' }).todo;
+    const t = addTodo(d, { title: 'old', context: 'alpha' }).todo;
     const u = updateTodo(d, tId(t), { title: 'new', due: '2026-08-01' });
     expect(u.title).toBe('new');
-    expect(u.context).toBe('noldor'); // untouched
+    expect(u.context).toBe('alpha'); // untouched
     expect(u.due_date).toBe('2026-08-01');
   });
 });
@@ -114,10 +114,10 @@ describe('updateTodo', () => {
 describe('renderTodoList', () => {
   it('groups by context and shows T-ids and due dates', () => {
     const d = db();
-    addTodo(d, { title: 'ship the report', context: 'noldor', due: '2026-07-21' });
+    addTodo(d, { title: 'ship the report', context: 'alpha', due: '2026-07-21' });
     addTodo(d, { title: 'renew passport', context: 'personal' });
     const out = renderTodoList(listTodos(d, {}));
-    expect(out).toContain('*noldor*');
+    expect(out).toContain('*alpha*');
     expect(out).toContain('T1 · ship the report (due 2026-07-21)');
     expect(out).toContain('*personal*');
     expect(out).toContain('T2 · renew passport');

@@ -14,7 +14,7 @@ The core loop: every hour at :05, Pepper processes Concierge's hourly delta and 
 |---|---|
 | Hourly cadence | **Silent unless action** — message only when todos were created or something is urgent; quiet hours send nothing |
 | Personal items | **Treated like work** — triaged and announced like any business context (supersedes the earlier SOUL rule hiding `personal_private` from proactive messages; that rule is amended) |
-| PwC context | **Activated at the source** — concierge config change (its repo) so items classify as `pwc` on ingestion; Pepper rules reference it cleanly |
+| Third work context | **Activated at the source** — concierge config change (its repo) so items classify as the third work context on ingestion; Pepper rules reference it cleanly |
 
 ## 2. Design — three layers, same doctrine as everything else
 
@@ -32,7 +32,7 @@ Surfaces:
 
 The rulebook the hourly run obeys. Deliberately **not** in the skill (public, stable mechanics) and **not** in SOUL.md (loaded every thread; a growing rulebook would tax every conversation). Edited exactly like SOUL.md: owner says "from now on…" → Pepper edits, shows the change, `pepperctl commit`, effective next run. Pepper may **propose** rules when it notices recurring patterns; only the owner's yes writes one (determinism doctrine).
 
-Starter content: context list (noldor, serova, pwc, personal), the owner decisions above, and default thresholds — refined from chat thereafter.
+Starter content: context list (the owner's work contexts + personal), the owner decisions above, and default thresholds — refined from chat thereafter.
 
 ### 2.3 The mechanics: an "Hourly triage" section in the canonical concierge skill (public plug)
 
@@ -45,7 +45,7 @@ Defaults, all overridable by `triage.md`: process `hourly.json` only (the delta 
 
 ### 2.5 Concierge-side (its repo, uncommitted for owner review)
 
-Activate the `pwc` context (rename/activate `us_client`) in `businessContexts.ts`; map the PwC mailbox in `accounts.ts` if one is configured. Takes effect on their next concierge deploy; until then such items arrive `unclassified` and triage rules may name senders as a stopgap.
+Activate the third work context (rename/activate `us_client`) in `businessContexts.ts`; map its mailbox in `accounts.ts` if one is configured. Takes effect on their next concierge deploy; until then such items arrive `unclassified` and triage rules may name senders as a stopgap.
 
 ## 3. Acceptance
 

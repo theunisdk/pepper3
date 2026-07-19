@@ -142,7 +142,7 @@ describe('control socket + scheduler', () => {
   it('todo round-trip: add with source dedup, list, done', async () => {
     const add = await callControl(sock, {
       cmd: 'todo.add',
-      args: { title: 'Reply to Jacques', context: 'noldor', source: 'acct:MSG1' },
+      args: { title: 'Reply to Alex', context: 'alpha', source: 'acct:MSG1' },
     });
     expect(add.ok).toBe(true);
     expect(add.text).toContain('T1');
@@ -156,7 +156,7 @@ describe('control socket + scheduler', () => {
 
     const list = await callControl(sock, { cmd: 'todo.list', args: {} });
     expect(list.ok).toBe(true);
-    expect(list.text).toContain('T1 · Reply to Jacques');
+    expect(list.text).toContain('T1 · Reply to Alex');
 
     const done = await callControl(sock, { cmd: 'todo.done', args: { id: 'T1' } });
     expect(done.ok).toBe(true);

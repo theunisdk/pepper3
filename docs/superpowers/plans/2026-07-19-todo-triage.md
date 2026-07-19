@@ -4,7 +4,7 @@
 
 **Goal:** A daemon-owned todo store (stable `T<n>` IDs, structural source-dedup) with `pepperctl todo` CRUD and a `/todos` Telegram view — the substrate for the hourly concierge triage job.
 
-**Architecture:** `todos` table beside the existing jobs tables; a pure store module (`src/todos.ts`); thin control-socket commands + pepperctl verbs; `/todos` rendered by the daemon. Content (skill triage section, `triage.md` rulebook, sync tool, the cron job itself, concierge pwc config) is orchestrator-run per the spec: `docs/superpowers/specs/2026-07-19-todo-triage-design.md`.
+**Architecture:** `todos` table beside the existing jobs tables; a pure store module (`src/todos.ts`); thin control-socket commands + pepperctl verbs; `/todos` rendered by the daemon. Content (skill triage section, `triage.md` rulebook, sync tool, the cron job itself, concierge context config) is orchestrator-run per the spec: `docs/superpowers/specs/2026-07-19-todo-triage-design.md`.
 
 **Tech Stack:** TypeScript (ESM, `.js` specifiers, strict + noUncheckedIndexedAccess), better-sqlite3, vitest.
 
@@ -101,7 +101,7 @@ describe('addTodo', () => {
 
   it('dedups by source_id: same source returns the existing todo, created=false', () => {
     const d = db();
-    const first = addTodo(d, { title: 'Reply to Jacques', sourceId: 'acct:MSG1', context: 'noldor' });
+    const first = addTodo(d, { title: 'Reply to Alex', sourceId: 'acct:MSG1', context: 'alpha' });
     const again = addTodo(d, { title: 'different title, same item', sourceId: 'acct:MSG1' });
     expect(again.created).toBe(false);
     expect(again.todo.id).toBe(first.todo.id);
@@ -154,23 +154,23 @@ describe('status transitions', () => {
 describe('listTodos', () => {
   it('defaults to open only; filters by status and context', () => {
     const d = db();
-    addTodo(d, { title: 'open-noldor', context: 'noldor' });
-    const done = addTodo(d, { title: 'done-serova', context: 'serova' }).todo;
+    addTodo(d, { title: 'open-alpha', context: 'alpha' });
+    const done = addTodo(d, { title: 'done-beta', context: 'beta' }).todo;
     setStatus(d, tId(done), 'done');
     expect(listTodos(d, {})).toHaveLength(1);
     expect(listTodos(d, { status: 'all' })).toHaveLength(2);
     expect(listTodos(d, { status: 'done' })).toHaveLength(1);
-    expect(listTodos(d, { context: 'noldor' })).toHaveLength(1);
+    expect(listTodos(d, { context: 'alpha' })).toHaveLength(1);
   });
 });
 
 describe('updateTodo', () => {
   it('patches title/context/due and bumps updated_at', () => {
     const d = db();
-    const t = addTodo(d, { title: 'old', context: 'noldor' }).todo;
+    const t = addTodo(d, { title: 'old', context: 'alpha' }).todo;
     const u = updateTodo(d, tId(t), { title: 'new', due: '2026-08-01' });
     expect(u.title).toBe('new');
-    expect(u.context).toBe('noldor'); // untouched
+    expect(u.context).toBe('alpha'); // untouched
     expect(u.due_date).toBe('2026-08-01');
   });
 });
@@ -178,10 +178,10 @@ describe('updateTodo', () => {
 describe('renderTodoList', () => {
   it('groups by context and shows T-ids and due dates', () => {
     const d = db();
-    addTodo(d, { title: 'ship the report', context: 'noldor', due: '2026-07-21' });
+    addTodo(d, { title: 'ship the report', context: 'alpha', due: '2026-07-21' });
     addTodo(d, { title: 'renew passport', context: 'personal' });
     const out = renderTodoList(listTodos(d, {}));
-    expect(out).toContain('*noldor*');
+    expect(out).toContain('*alpha*');
     expect(out).toContain('T1 · ship the report (due 2026-07-21)');
     expect(out).toContain('*personal*');
     expect(out).toContain('T2 · renew passport');
@@ -517,7 +517,7 @@ Append to `tests/integration.test.ts`, inside the `describe('control socket + sc
   it('todo round-trip: add with source dedup, list, done', async () => {
     const add = await callControl(sock, {
       cmd: 'todo.add',
-      args: { title: 'Reply to Jacques', context: 'noldor', source: 'acct:MSG1' },
+      args: { title: 'Reply to Alex', context: 'alpha', source: 'acct:MSG1' },
     });
     expect(add.ok).toBe(true);
     expect(add.text).toContain('T1');
@@ -531,7 +531,7 @@ Append to `tests/integration.test.ts`, inside the `describe('control socket + sc
 
     const list = await callControl(sock, { cmd: 'todo.list', args: {} });
     expect(list.ok).toBe(true);
-    expect(list.text).toContain('T1 · Reply to Jacques');
+    expect(list.text).toContain('T1 · Reply to Alex');
 
     const done = await callControl(sock, { cmd: 'todo.done', args: { id: 'T1' } });
     expect(done.ok).toBe(true);
@@ -561,4 +561,4 @@ git commit -m "feat: todo surfaces — pepperctl todo CRUD over the socket, /tod
 
 ### Task 3 (orchestrator-run): content, job, live acceptance
 
-Per spec §2.2–§2.5: canonical skill triage section (concierge repo + bucket + installed); `workspace/triage.md` starter rulebook; SOUL amendments (personal-items rule supersession + sync tool doc); `workspace/tools/sync-concierge`; concierge `pwc` config (its repo, uncommitted); create the `concierge-triage` cron job; live acceptance incl. the zero-duplicates re-run and quiet-hour silence; audit + push.
+Per spec §2.2–§2.5: canonical skill triage section (concierge repo + bucket + installed); `workspace/triage.md` starter rulebook; SOUL amendments (personal-items rule supersession + sync tool doc); `workspace/tools/sync-concierge`; concierge context config (its repo, uncommitted); create the `concierge-triage` cron job; live acceptance incl. the zero-duplicates re-run and quiet-hour silence; audit + push.
