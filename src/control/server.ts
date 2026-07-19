@@ -14,6 +14,7 @@ import {
   setEnabled,
   updateJob,
 } from '../scheduler/jobs.js';
+import { addTodo, listTodos, renderTodoList, setStatus, tId, TodoError, updateTodo } from '../todos.js';
 import { commitWorkspace } from '../workspace.js';
 import type { ControlRequest, ControlResponse } from './protocol.js';
 import type { JobMode } from '../db.js';
@@ -170,6 +171,49 @@ export class ControlServer {
           return { ok: true, text: lines.join('\n'), data: runs };
         }
 
+        case 'todo.add': {
+          const title = str(a.title, 'title');
+          const r = addTodo(this.deps.db, {
+            title,
+            ...(typeof a.context === 'string' && a.context ? { context: a.context } : {}),
+            ...(typeof a.source === 'string' && a.source ? { sourceId: a.source } : {}),
+            ...(typeof a.due === 'string' && a.due ? { due: a.due } : {}),
+          });
+          return {
+            ok: true,
+            text: r.created
+              ? `Created ${tId(r.todo)} · ${r.todo.title} (${r.todo.context}${r.todo.due_date ? `, due ${r.todo.due_date}` : ''})`
+              : `${tId(r.todo)} already covers this item (source dedup) — status: ${r.todo.status}`,
+            data: r,
+          };
+        }
+
+        case 'todo.list': {
+          const filter = {
+            ...(a.all === true ? { status: 'all' as const } : typeof a.status === 'string' ? { status: a.status as never } : {}),
+            ...(typeof a.context === 'string' && a.context ? { context: a.context } : {}),
+          };
+          const todos = listTodos(this.deps.db, filter);
+          return { ok: true, text: renderTodoList(todos), data: todos };
+        }
+
+        case 'todo.done':
+        case 'todo.drop': {
+          const t = setStatus(this.deps.db, str(a.id, 'id'), req.cmd === 'todo.done' ? 'done' : 'dropped');
+          return { ok: true, text: `${tId(t)} ${t.status} — ${t.title}`, data: t };
+        }
+
+        case 'todo.update': {
+          const patch = {
+            ...(typeof a.title === 'string' ? { title: a.title } : {}),
+            ...(typeof a.context === 'string' ? { context: a.context } : {}),
+            ...(typeof a.due === 'string' ? { due: a.due } : {}),
+          };
+          if (Object.keys(patch).length === 0) return { ok: false, error: 'nothing to update' };
+          const t = updateTodo(this.deps.db, str(a.id, 'id'), patch);
+          return { ok: true, text: `${tId(t)} updated · ${t.title} (${t.context}${t.due_date ? `, due ${t.due_date}` : ''})`, data: t };
+        }
+
         case 'workspace.commit': {
           const message = str(a.message, 'message');
           const r = commitWorkspace(this.deps.cfg.workspacePath, message);
@@ -180,7 +224,7 @@ export class ControlServer {
           return { ok: false, error: `unknown command "${req.cmd}"` };
       }
     } catch (e) {
-      if (e instanceof JobError) return { ok: false, error: e.message };
+      if (e instanceof JobError || e instanceof TodoError) return { ok: false, error: e.message };
       logger.error({ err: e, cmd: req.cmd }, 'control command failed');
       return { ok: false, error: (e as Error).message };
     }

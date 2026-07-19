@@ -24,6 +24,11 @@ export const CONTROL_COMMANDS = [
   'cron.resume',
   'runs',
   'workspace.commit',
+  'todo.add',
+  'todo.list',
+  'todo.done',
+  'todo.drop',
+  'todo.update',
 ] as const;
 
 export type ControlCommand = (typeof CONTROL_COMMANDS)[number];

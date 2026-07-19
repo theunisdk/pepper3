@@ -14,6 +14,7 @@ import { anomalousRuns, listJobs } from './scheduler/jobs.js';
 import { CodexEngine } from './engine/codex/adapter.js';
 import { ContextExhaustedError, EngineAuthError, type Engine } from './engine/types.js';
 import type { Job } from './db.js';
+import { listTodos, renderTodoList } from './todos.js';
 
 const MAIN_CHAT_KEY = 'main';
 const META_MAIN_CHAT_ID = 'main_chat_id';
@@ -115,6 +116,8 @@ async function main(): Promise<void> {
           if (!existsSync(soulPath)) return 'No SOUL.md yet — restart pepperd to create it from the template.';
           return readFileSync(soulPath, 'utf8');
         }
+        case 'todos':
+          return renderTodoList(listTodos(db, {}));
         default:
           return `Unknown command: ${cmd}`;
       }

@@ -29,6 +29,10 @@ Daemon control (talks to the running pepperd):
   pepperctl cron rm|pause|resume --name <n>
   pepperctl runs --name <n> [--limit N]
   pepperctl commit --message '<one line>'     Commit workspace changes to its local git history
+  pepperctl todo add --title <t> [--context c] [--source <item-id>] [--due YYYY-MM-DD]
+  pepperctl todo list [--all|--status s] [--context c]
+  pepperctl todo done|drop <T-id>
+  pepperctl todo update <T-id> [--title t] [--context c] [--due d]
 
 Management (local, work without the daemon):
   pepperctl setup [--owner-id N] [--tz Z] [--force] [--no-login]   First-run config wizard
@@ -87,6 +91,35 @@ function buildRequest(argv: string[]): ControlRequest {
       fail('commit needs --message (one line describing the behaviour change)');
     }
     return { cmd: 'workspace.commit', args: { message: f.message } };
+  }
+
+  if (group === 'todo') {
+    const [sub, ...todoArgs] = rest;
+    const f = parseFlags(todoArgs);
+    switch (sub) {
+      case 'add': {
+        if (typeof f.title !== 'string' || !f.title.trim()) fail('todo add needs --title');
+        return {
+          cmd: 'todo.add',
+          args: { title: f.title, context: f.context, source: f.source, due: f.due },
+        };
+      }
+      case 'list':
+        return { cmd: 'todo.list', args: { all: f.all === true, status: f.status, context: f.context } };
+      case 'done':
+      case 'drop': {
+        const id = todoArgs.find((x) => !x.startsWith('--'));
+        if (!id) fail(`todo ${sub} needs an id (e.g. T14)`);
+        return { cmd: `todo.${sub}`, args: { id } };
+      }
+      case 'update': {
+        const id = todoArgs.find((x) => !x.startsWith('--'));
+        if (!id) fail('todo update needs an id (e.g. T14)');
+        return { cmd: 'todo.update', args: { id, title: f.title, context: f.context, due: f.due } };
+      }
+      default:
+        fail(`unknown todo subcommand "${sub ?? ''}"`);
+    }
   }
 
   if (group === 'cron') {

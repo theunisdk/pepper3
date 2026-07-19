@@ -138,6 +138,37 @@ describe('control socket + scheduler', () => {
     expect(res.ok).toBe(false);
     expect(res.error).toContain('unknown command');
   });
+
+  it('todo round-trip: add with source dedup, list, done', async () => {
+    const add = await callControl(sock, {
+      cmd: 'todo.add',
+      args: { title: 'Reply to Jacques', context: 'noldor', source: 'acct:MSG1' },
+    });
+    expect(add.ok).toBe(true);
+    expect(add.text).toContain('T1');
+
+    const dup = await callControl(sock, {
+      cmd: 'todo.add',
+      args: { title: 'same item again', source: 'acct:MSG1' },
+    });
+    expect(dup.ok).toBe(true);
+    expect(dup.text).toContain('already covers');
+
+    const list = await callControl(sock, { cmd: 'todo.list', args: {} });
+    expect(list.ok).toBe(true);
+    expect(list.text).toContain('T1 · Reply to Jacques');
+
+    const done = await callControl(sock, { cmd: 'todo.done', args: { id: 'T1' } });
+    expect(done.ok).toBe(true);
+    const after = await callControl(sock, { cmd: 'todo.list', args: {} });
+    expect(after.text).toContain('No open todos');
+  });
+
+  it('todo errors surface cleanly over the socket', async () => {
+    const bad = await callControl(sock, { cmd: 'todo.done', args: { id: 'T99' } });
+    expect(bad.ok).toBe(false);
+    expect(bad.error).toContain('No todo T99');
+  });
 });
 
 describe('scheduled question round-trip (acceptance scenario 1)', () => {
