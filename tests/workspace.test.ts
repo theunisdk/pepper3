@@ -93,3 +93,26 @@ describe('commitWorkspace', () => {
     expect(gitLog(cfg.workspacePath).split('\n')).toHaveLength(1);
   });
 });
+
+describe('ensurePepperctlShim', () => {
+  it('writes an executable shim baking in entrypoint and config path', async () => {
+    const { ensurePepperctlShim } = await import('../src/workspace.js');
+    const dir = mkdtempSync(join(tmpdir(), 'ws-'));
+    const entry = join(dir, 'fake-pepperctl.js');
+    writeFileSync(entry, '// entry');
+    const ok = ensurePepperctlShim(dir, '/etc/pepper/pepper.config.json', entry);
+    expect(ok).toBe(true);
+    const shim = join(dir, 'tools', 'pepperctl');
+    const mode = statSync(shim).mode & 0o111;
+    expect(mode).not.toBe(0); // executable
+    const body = execSync(`cat "${shim}"`, { encoding: 'utf8' });
+    expect(body).toContain(entry);
+    expect(body).toContain('/etc/pepper/pepper.config.json');
+  });
+
+  it('skips gracefully when the entrypoint does not exist', async () => {
+    const { ensurePepperctlShim } = await import('../src/workspace.js');
+    const dir = mkdtempSync(join(tmpdir(), 'ws-'));
+    expect(ensurePepperctlShim(dir, '/cfg', join(dir, 'missing.js'))).toBe(false);
+  });
+});

@@ -11,13 +11,15 @@ import {
   type EngineResult,
 } from '../types.js';
 import { checkAuth, isAuthError } from './auth.js';
-import { sanitiseEnv } from './env.js';
+import { agentEnv } from './env.js';
 
 export interface CodexEngineOptions {
   db: Database.Database;
   workspacePath: string;
   codexHome: string;
   model?: string;
+  /** Absolute path of pepper.config.json — exported to agent shells for pepperctl. */
+  configPath?: string;
   /** Extra writable roots inside the sandbox (e.g. the gws token directory). */
   additionalDirectories?: string[];
 }
@@ -61,7 +63,7 @@ export class CodexEngine implements Engine {
     this.db = opts.db;
     this.codexHome = opts.codexHome;
 
-    const { env, stripped } = sanitiseEnv(opts.codexHome);
+    const { env, stripped } = agentEnv(opts.codexHome, opts.workspacePath, opts.configPath);
     if (stripped.length > 0) {
       logger.warn(
         { stripped },

@@ -27,6 +27,25 @@ export interface SanitisedEnv {
 }
 
 /**
+ * The full environment for the agent's sandbox: sanitised credentials, plus
+ * the workspace tools dir on PATH (AGENTS.md promises owner tools and the
+ * pepperctl shim are runnable — this is what makes that promise true) and
+ * PEPPER_CONFIG so pepperctl resolves the right config from any cwd.
+ */
+export function agentEnv(
+  codexHome: string,
+  workspacePath: string,
+  configPath?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): SanitisedEnv {
+  const result = sanitiseEnv(codexHome, env);
+  const toolsDir = `${workspacePath}/tools`;
+  result.env.PATH = result.env.PATH ? `${toolsDir}:${result.env.PATH}` : toolsDir;
+  if (configPath) result.env.PEPPER_CONFIG = configPath;
+  return result;
+}
+
+/**
  * Returns a copy of `env` with billing credentials removed and CODEX_HOME
  * pinned to Pepper's dedicated directory (so an interactive codex on the same
  * box can't leak its MCP servers or global AGENTS.md into Pepper's runs).

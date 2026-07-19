@@ -89,3 +89,17 @@ describe('isAuthError', () => {
     expect(isAuthError(new Error('ECONNRESET'))).toBe(false);
   });
 });
+
+describe('agentEnv', () => {
+  it('puts workspace tools first on PATH and exports PEPPER_CONFIG', async () => {
+    const { agentEnv } = await import('../src/engine/codex/env.js');
+    const { env } = agentEnv('/ch', '/ws', '/cfg/pepper.config.json', {
+      PATH: '/usr/bin',
+      OPENAI_API_KEY: 'sk-x',
+    } as NodeJS.ProcessEnv);
+    expect(env.PATH).toBe('/ws/tools:/usr/bin');
+    expect(env.PEPPER_CONFIG).toBe('/cfg/pepper.config.json');
+    expect(env.OPENAI_API_KEY).toBeUndefined(); // sanitise still applies
+    expect(env.CODEX_HOME).toBe('/ch');
+  });
+});

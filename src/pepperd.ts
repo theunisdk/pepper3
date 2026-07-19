@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   const cfg = loadConfig(configPath);
   const token = requireBotToken();
 
-  const ws = initWorkspace(cfg);
+  const ws = initWorkspace(cfg, configPath);
   if (!ws.skillsLinked) logger.warn({ detail: ws.skillsDetail }, 'skills are NOT linked — authored skills will be ignored');
 
   const db = openDb(cfg.dbPath);
@@ -32,6 +32,7 @@ async function main(): Promise<void> {
     db,
     workspacePath: cfg.workspacePath,
     codexHome: cfg.codexHome,
+    configPath,
     ...(cfg.model ? { model: cfg.model } : {}),
     ...(cfg.sandboxWritableRoots.length ? { additionalDirectories: cfg.sandboxWritableRoots } : {}),
   });
