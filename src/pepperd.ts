@@ -6,6 +6,7 @@ import { getMeta, openDb, setMeta, clearThread } from './db.js';
 import { logger } from './logger.js';
 import { initWorkspace } from './workspace.js';
 import { firstTurnInput, withDateHeader } from './context.js';
+import { decideRotation, NUDGE_NOTICE, ROTATE_NOTICE } from './chat/rotation.js';
 import { TelegramGateway } from './chat/gateway.js';
 import { TurnQueue } from './chat/queue.js';
 import { ControlServer } from './control/server.js';
@@ -18,6 +19,8 @@ import { listTodos, renderTodoList } from './todos.js';
 
 const MAIN_CHAT_KEY = 'main';
 const META_MAIN_CHAT_ID = 'main_chat_id';
+const META_THREAD_TOKENS = 'main_thread_tokens';
+const META_THREAD_NUDGED = 'main_thread_nudged';
 
 async function main(): Promise<void> {
   const configPath = resolve(process.argv[2] ?? process.env.PEPPER_CONFIG ?? 'pepper.config.json');
@@ -59,19 +62,47 @@ async function main(): Promise<void> {
     return row?.thread_id;
   };
 
+  // Thread-hygiene bookkeeping lives in meta so it survives restarts and is
+  // cleared whenever the thread itself is reset.
+  const clearThreadHygiene = () => {
+    setMeta(db, META_THREAD_TOKENS, '0');
+    setMeta(db, META_THREAD_NUDGED, '0');
+  };
+
+  async function resetMainThread(): Promise<void> {
+    await engine.resetThread(MAIN_CHAT_KEY);
+    clearThreadHygiene();
+  }
+
   async function runOnMain(prompt: string, signal: AbortSignal): Promise<string> {
     const input = isNewThread(MAIN_CHAT_KEY)
       ? firstTurnInput(cfg, prompt)
       : withDateHeader(prompt, cfg.timezone);
     try {
       const res = await engine.runTurn(MAIN_CHAT_KEY, input, signal);
+
+      // Daemon-owned thread hygiene: nudge once as the thread gets long,
+      // rotate outright before it gets pathological. Rotation is cheap —
+      // standing context re-injects durable memory on the fresh thread.
+      if (res.inputTokens !== undefined) setMeta(db, META_THREAD_TOKENS, String(res.inputTokens));
+      const nudged = getMeta(db, META_THREAD_NUDGED) === '1';
+      const decision = decideRotation(res.inputTokens, nudged, cfg.threadNudgeTokens, cfg.threadRotateTokens);
+      if (decision === 'rotate') {
+        logger.info({ inputTokens: res.inputTokens }, 'rotating main thread (token threshold)');
+        await resetMainThread();
+        return res.text + ROTATE_NOTICE;
+      }
+      if (decision === 'nudge') {
+        setMeta(db, META_THREAD_NUDGED, '1');
+        return res.text + NUDGE_NOTICE;
+      }
       return res.text;
     } catch (err) {
       if (err instanceof ContextExhaustedError) {
-        // The thread outgrew its window. Start a fresh one with standing
-        // context and tell the owner, rather than failing opaquely.
+        // The safety net below the rotation policy: if a turn still dies on
+        // context length, reset and retry with standing context.
         logger.warn('context exhausted — resetting thread');
-        await engine.resetThread(MAIN_CHAT_KEY);
+        await resetMainThread();
         const res = await engine.runTurn(MAIN_CHAT_KEY, firstTurnInput(cfg, prompt), signal);
         return `_(Started a fresh thread — the old one got too long. My notes and memory carried over.)_\n\n${res.text}`;
       }
@@ -104,7 +135,7 @@ async function main(): Promise<void> {
     onCommand: async (_chatId, cmd) => {
       switch (cmd) {
         case 'new':
-          await engine.resetThread(MAIN_CHAT_KEY);
+          await resetMainThread();
           return 'Started a fresh thread. My memory and notes are reloaded from disk.';
         case 'cancel':
           return queue.cancel() ? 'Stopped it.' : 'Nothing was running.';
@@ -205,6 +236,7 @@ async function renderStatus(
     `Queue: ${depth} waiting`,
     `Skills: ${skillsLinked ? '✅ linked' : `❌ ${skillsDetail}`}`,
     `Workspace: \`${cfg.workspacePath}\``,
+    `Main thread: ~${Math.round(Number(getMeta(db, 'main_thread_tokens') ?? 0) / 1000)}k tokens (nudge ${Math.round(cfg.threadNudgeTokens / 1000)}k / rotate ${Math.round(cfg.threadRotateTokens / 1000)}k)`,
   ];
 
   lines.push('', jobs.length ? '*Next jobs*' : '_No scheduled jobs._');

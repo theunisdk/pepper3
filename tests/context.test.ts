@@ -18,6 +18,8 @@ function ws(): PepperConfig {
     dbPath: join(dir, 'db.sqlite'),
     dailyNoteDays: 2,
     cronGraceMs: 60_000,
+    threadNudgeTokens: 150_000,
+    threadRotateTokens: 250_000,
     sandboxWritableRoots: [],
   };
 }

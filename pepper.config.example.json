@@ -1,17 +1,17 @@
 {
-  "_comment": "Copy to pepper.config.json and edit. Secrets never live here — the bot token comes from the TELEGRAM_BOT_TOKEN environment variable (written to /etc/pepper/pepper.env from SSM at boot). sandboxWritableRoots lists extra directories the agent's sandbox may write to (e.g. the gws token dir — see docs/google-setup.md).",
-
-  "ownerTelegramIds": [123456789],
+  "_comment": "Copy to pepper.config.json and edit. Secrets never live here \u2014 the bot token comes from the TELEGRAM_BOT_TOKEN environment variable (written to /etc/pepper/pepper.env from SSM at boot). sandboxWritableRoots lists extra directories the agent's sandbox may write to (e.g. the gws token dir \u2014 see docs/google-setup.md).",
+  "ownerTelegramIds": [
+    123456789
+  ],
   "timezone": "UTC",
-
   "workspacePath": "~/pepper/workspace",
   "codexHome": "~/pepper/codex-home",
   "dbPath": "~/pepper/pepper.sqlite",
-
   "turnTimeoutMs": 600000,
   "standingContextBudget": 20000,
   "dailyNoteDays": 2,
   "cronGraceMs": 1800000,
-
+  "threadNudgeTokens": 150000,
+  "threadRotateTokens": 250000,
   "sandboxWritableRoots": []
 }

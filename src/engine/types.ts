@@ -9,6 +9,8 @@ export interface EngineResult {
   /** The reply, and only the reply. Tool calls and reasoning never appear here. */
   text: string;
   threadId: string;
+  /** Input tokens the turn consumed — the daemon's thread-hygiene signal. */
+  inputTokens?: number;
 }
 
 export interface EngineHealth {

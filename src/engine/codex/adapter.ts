@@ -145,7 +145,8 @@ export class CodexEngine implements Engine {
       'turn complete',
     );
 
-    return { text: turn.finalResponse ?? '', threadId };
+    const inputTokens = turn.usage?.input_tokens;
+    return { text: turn.finalResponse ?? '', threadId, ...(inputTokens !== undefined ? { inputTokens } : {}) };
   }
 
   /** Map SDK errors onto the Engine's vocabulary so callers can react. */

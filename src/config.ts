@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolve, isAbsolute, join } from 'node:path';
+import { dirname, resolve, isAbsolute, join } from 'node:path';
 
 export interface PepperConfig {
   /** Telegram numeric user IDs allowed to talk to the bot. Everything else is dropped. */
@@ -23,6 +23,10 @@ export interface PepperConfig {
   dailyNoteDays: number;
   /** Fire a missed recurring occurrence if the daemon restarts within this window. */
   cronGraceMs: number;
+  /** Nudge the owner (once per thread) when the main thread reaches this many input tokens. */
+  threadNudgeTokens: number;
+  /** Rotate the main thread automatically at this many input tokens. */
+  threadRotateTokens: number;
   /**
    * Extra directories the agent's sandboxed shell may write to, beyond the
    * workspace. Needed by tools that persist state in $HOME — e.g. gws writes
@@ -38,6 +42,8 @@ const DEFAULTS = {
   standingContextBudget: 20_000,
   dailyNoteDays: 2,
   cronGraceMs: 30 * 60_000,
+  threadNudgeTokens: 150_000,
+  threadRotateTokens: 250_000,
 } as const;
 
 export class ConfigError extends Error {
@@ -70,6 +76,10 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
     throw new ConfigError(`${configPath} must contain a JSON object.`);
   }
   const c = raw as Record<string, unknown>;
+  // Relative paths resolve against the CONFIG FILE's directory, never the
+  // invoker's cwd — pepperctl runs from the agent's sandbox (cwd = workspace),
+  // the daemon from the repo, systemd from /: all must agree on the same paths.
+  const baseDir = dirname(resolve(configPath));
 
   // Owner IDs: the security control. An empty allowlist would mean "anyone", so
   // it is an error rather than a permissive default.
@@ -88,9 +98,9 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
     return n;
   });
 
-  const workspacePath = absolutise(str(c.workspacePath, env.PEPPER_WORKSPACE) ?? '~/pepper/workspace');
-  const codexHome = absolutise(str(c.codexHome, env.PEPPER_CODEX_HOME) ?? '~/pepper/codex-home');
-  const dbPath = absolutise(str(c.dbPath, env.PEPPER_DB) ?? '~/pepper/pepper.sqlite');
+  const workspacePath = absolutise(str(c.workspacePath, env.PEPPER_WORKSPACE) ?? '~/pepper/workspace', baseDir);
+  const codexHome = absolutise(str(c.codexHome, env.PEPPER_CODEX_HOME) ?? '~/pepper/codex-home', baseDir);
+  const dbPath = absolutise(str(c.dbPath, env.PEPPER_DB) ?? '~/pepper/pepper.sqlite', baseDir);
 
   const rootsRaw = c.sandboxWritableRoots ?? [];
   if (!Array.isArray(rootsRaw)) {
@@ -100,7 +110,7 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
     if (typeof v !== 'string' || !v.trim()) {
       throw new ConfigError(`sandboxWritableRoots entries must be non-empty strings; got ${JSON.stringify(v)}`);
     }
-    return absolutise(v.trim());
+    return absolutise(v.trim(), baseDir);
   });
 
   const timezone = str(c.timezone, env.PEPPER_TZ) ?? DEFAULTS.timezone;
@@ -116,6 +126,8 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
     dbPath,
     dailyNoteDays: num(c.dailyNoteDays) ?? DEFAULTS.dailyNoteDays,
     cronGraceMs: num(c.cronGraceMs) ?? DEFAULTS.cronGraceMs,
+    threadNudgeTokens: num(c.threadNudgeTokens) ?? DEFAULTS.threadNudgeTokens,
+    threadRotateTokens: num(c.threadRotateTokens) ?? DEFAULTS.threadRotateTokens,
     sandboxWritableRoots,
   };
   const model = str(c.model, env.PEPPER_MODEL);
@@ -124,6 +136,10 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
   if (cfg.turnTimeoutMs < 10_000) throw new ConfigError('turnTimeoutMs must be at least 10000 (10s).');
   if (cfg.dailyNoteDays < 0) throw new ConfigError('dailyNoteDays must be >= 0.');
   if (cfg.standingContextBudget < 1000) throw new ConfigError('standingContextBudget must be at least 1000.');
+  if (cfg.threadNudgeTokens < 10_000) throw new ConfigError('threadNudgeTokens must be at least 10000.');
+  if (cfg.threadRotateTokens <= cfg.threadNudgeTokens) {
+    throw new ConfigError('threadRotateTokens must be greater than threadNudgeTokens.');
+  }
 
   return cfg;
 }
@@ -163,9 +179,9 @@ function num(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
-function absolutise(p: string): string {
+function absolutise(p: string, baseDir: string): string {
   const e = expandHome(p);
-  return isAbsolute(e) ? e : resolve(process.cwd(), e);
+  return isAbsolute(e) ? e : resolve(baseDir, e);
 }
 
 function assertTimezone(tz: string): void {

@@ -26,6 +26,9 @@ export class FakeEngine implements Engine {
   /** Artificial latency, so abort/timeout paths can be exercised. */
   delayMs = 0;
 
+  /** Reported as EngineResult.inputTokens on every turn (rotation tests). */
+  inputTokens: number | undefined = undefined;
+
   async runTurn(chatKey: string, input: string, signal?: AbortSignal): Promise<EngineResult> {
     return this.exec(chatKey, input, signal);
   }
@@ -66,7 +69,11 @@ export class FakeEngine implements Engine {
       : `isolated-${++this.seq}`;
 
     this.turns.push({ chatKey, input, threadId });
-    return { text: await this.responder(input, chatKey), threadId };
+    return {
+      text: await this.responder(input, chatKey),
+      threadId,
+      ...(this.inputTokens !== undefined ? { inputTokens: this.inputTokens } : {}),
+    };
   }
 
   private newThread(chatKey: string): string {
