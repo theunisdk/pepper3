@@ -116,8 +116,9 @@ export function runGoogle(cfg: PepperConfig, configPath: string, argv: string[])
   const expectedEmail = argv.find((a) => !a.startsWith('--') && a.includes('@'));
 
   // --client-secret <file>: validate, then stage into the dedicated dir.
-  const csIdx = argv.indexOf('--client-secret');
-  const passThrough = [...argv];
+  // (The positional email is ours too — never passed through to gws.)
+  const passThrough = argv.filter((a) => a !== expectedEmail);
+  const csIdx = passThrough.indexOf('--client-secret');
   if (csIdx >= 0) {
     const src = passThrough[csIdx + 1];
     passThrough.splice(csIdx, src && !src.startsWith('--') ? 2 : 1);
