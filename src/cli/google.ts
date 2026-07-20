@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { PepperConfig } from '../config.js';
 
 /**
- * Guided Google activation — `pepperctl google`.
+ * Guided Google activation — `pepperctl google [account@email]`.
  *
  * Design constraints, learned against the real CLI:
  * - gws (0.22.x) has no --client-secret flag; it reads its client config from
@@ -62,6 +62,18 @@ export function parseAuthStatus(stdout: string): { authenticated: boolean; detai
   }
 }
 
+/** Extract the signed-in account from a `gws gmail users getProfile` response. */
+export function extractEmail(stdout: string): string | undefined {
+  const start = stdout.indexOf('{');
+  if (start < 0) return undefined;
+  try {
+    const profile = JSON.parse(stdout.slice(start)) as { emailAddress?: string };
+    return typeof profile.emailAddress === 'string' ? profile.emailAddress : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Merge a directory into sandboxWritableRoots in the raw config JSON. Idempotent. */
 export function addWritableRoot(rawJson: string, dir: string): { json: string; changed: boolean } {
   const cfg = JSON.parse(rawJson) as Record<string, unknown>;
@@ -97,6 +109,11 @@ export function runGoogle(cfg: PepperConfig, configPath: string, argv: string[])
   const gwsEnv = { ...process.env, GOOGLE_WORKSPACE_CLI_CONFIG_DIR: gwsDir };
   const clientSecretDest = join(gwsDir, 'client_secret.json');
   let authedDuringSetup = false;
+
+  // Positional account email: `pepperctl google pepper@example.com` — used to
+  // VERIFY the signed-in identity afterwards. The browser account-chooser
+  // decides who the token belongs to; this catches picking the wrong account.
+  const expectedEmail = argv.find((a) => !a.startsWith('--') && a.includes('@'));
 
   // --client-secret <file>: validate, then stage into the dedicated dir.
   const csIdx = argv.indexOf('--client-secret');
@@ -156,7 +173,24 @@ export function runGoogle(cfg: PepperConfig, configPath: string, argv: string[])
     process.stderr.write(`❌ Verification failed: ${verdict.detail}\n`);
     return 1;
   }
-  process.stdout.write(`✅ ${verdict.detail}\n`);
+
+  // Identity check: whose token did the browser flow actually mint?
+  const profile = spawnSync('gws', ['gmail', 'users', 'getProfile', '--params', '{"userId":"me"}'], {
+    encoding: 'utf8',
+    env: gwsEnv,
+  });
+  const signedInAs = extractEmail(profile.stdout ?? '');
+  if (expectedEmail && signedInAs && signedInAs.toLowerCase() !== expectedEmail.toLowerCase()) {
+    // Wrong account must not linger as the assistant's identity.
+    spawnSync('gws', ['auth', 'logout'], { stdio: 'ignore', env: gwsEnv });
+    process.stderr.write(
+      `❌ Signed in as ${signedInAs}, but expected ${expectedEmail}.\n` +
+        `   Logged that token out. Re-run and pick ${expectedEmail} in the browser's account chooser\n` +
+        `   ("Use another account" if it isn't listed).\n`,
+    );
+    return 1;
+  }
+  process.stdout.write(`✅ ${verdict.detail}${signedInAs ? ` — signed in as ${signedInAs}` : ''}\n`);
 
   // Token refreshes must persist from headless agent runs: the dedicated dir
   // becomes a sandbox writable root.

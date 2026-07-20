@@ -38,7 +38,7 @@ Management (local, work without the daemon):
   pepperctl setup [--owner-id N] [--tz Z] [--force] [--no-login]   First-run config wizard
   pepperctl login [--device-auth]             Log in to Codex against Pepper's CODEX_HOME
   pepperctl doctor                            Health checks: auth, skills link, daemon, roots
-  pepperctl google [--client-secret <json>]   Link a Google account (guided; validates + verifies)
+  pepperctl google [account@email] [--client-secret <json>]   Link a Google account (guided + identity-verified)
 
 Modes:
   main      (default) Ask on the owner's own thread; their reply continues it.
@@ -183,18 +183,18 @@ async function main(): Promise<void> {
   }
 
   if (argv[0] === 'login') {
-    const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));
+    const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'), process.env, { requireOwnerIds: false });
     process.exit(runLogin(cfg, { deviceAuth: argv.includes('--device-auth') }));
   }
 
   if (argv[0] === 'doctor') {
-    const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));
+    const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'), process.env, { requireOwnerIds: false });
     process.exit(await runDoctor(cfg));
   }
 
   if (argv[0] === 'google') {
     const configPath = resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json');
-    const cfg = loadConfig(configPath);
+    const cfg = loadConfig(configPath, process.env, { requireOwnerIds: false });
     process.exit(runGoogle(cfg, configPath, argv.slice(1)));
   }
 

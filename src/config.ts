@@ -61,7 +61,20 @@ function expandHome(p: string): string {
  * environment (see `/etc/pepper/pepper.env`, populated from SSM at boot).
  * Validation is strict and fails at startup rather than at 3am.
  */
-export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.env): PepperConfig {
+export interface LoadConfigOptions {
+  /**
+   * The daemon and chat-facing commands need the owner allowlist; local
+   * management commands (google/login/doctor) do not — requiring it there
+   * just forces an irrelevant env var into setup instructions.
+   */
+  requireOwnerIds?: boolean;
+}
+
+export function loadConfig(
+  configPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+  opts: LoadConfigOptions = {},
+): PepperConfig {
   if (!existsSync(configPath)) {
     throw new ConfigError(
       `No config at ${configPath}. Copy pepper.config.example.json to pepper.config.json and edit it.`,
@@ -85,14 +98,14 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
 
   // Owner IDs: the security control. An empty allowlist would mean "anyone", so
   // it is an error rather than a permissive default.
-  const idsRaw = c.ownerTelegramIds ?? parseEnvIds(env.PEPPER_OWNER_TELEGRAM_IDS);
-  if (!Array.isArray(idsRaw) || idsRaw.length === 0) {
+  const idsRaw = c.ownerTelegramIds ?? parseEnvIds(env.PEPPER_OWNER_TELEGRAM_IDS) ?? [];
+  if ((!Array.isArray(idsRaw) || idsRaw.length === 0) && opts.requireOwnerIds !== false) {
     throw new ConfigError(
       'ownerTelegramIds must list at least one numeric Telegram user ID. ' +
         'Without it the bot would answer anyone. Get yours from @userinfobot.',
     );
   }
-  const ownerTelegramIds = idsRaw.map((v) => {
+  const ownerTelegramIds = (Array.isArray(idsRaw) ? idsRaw : []).map((v) => {
     const n = typeof v === 'string' ? Number(v) : v;
     if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0) {
       throw new ConfigError(`ownerTelegramIds entries must be positive integers; got ${JSON.stringify(v)}`);

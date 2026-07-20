@@ -56,3 +56,15 @@ describe('addWritableRoot', () => {
     expect((JSON.parse(once.json) as { sandboxWritableRoots: string[] }).sandboxWritableRoots).toEqual(['/d']);
   });
 });
+
+describe('extractEmail', () => {
+  it('pulls the account from a getProfile response with preamble', async () => {
+    const { extractEmail } = await import('../src/cli/google.js');
+    const out = 'Using keyring backend: keyring\n' + JSON.stringify({ emailAddress: 'pepper@example.com', messagesTotal: 1 });
+    expect(extractEmail(out)).toBe('pepper@example.com');
+  });
+  it('returns undefined on garbage', async () => {
+    const { extractEmail } = await import('../src/cli/google.js');
+    expect(extractEmail('no json here')).toBeUndefined();
+  });
+});

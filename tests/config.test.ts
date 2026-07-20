@@ -65,3 +65,15 @@ describe('path resolution', () => {
     expect(cfg.dbPath).toBe(join(dir, 'data', 'pepper.sqlite'));
   });
 });
+
+describe('requireOwnerIds option', () => {
+  it('management commands can load config without an allowlist', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pepper-cfg-'));
+    const path = join(dir, 'pepper.config.json');
+    writeFileSync(path, JSON.stringify({ timezone: 'UTC' }));
+    const cfg = loadConfig(path, {} as NodeJS.ProcessEnv, { requireOwnerIds: false });
+    expect(cfg.ownerTelegramIds).toEqual([]);
+    // The daemon path still refuses:
+    expect(() => loadConfig(path, {} as NodeJS.ProcessEnv)).toThrow(ConfigError);
+  });
+});
