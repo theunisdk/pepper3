@@ -20,6 +20,8 @@ export interface CodexEngineOptions {
   model?: string;
   /** Absolute path of pepper.config.json — exported to agent shells for pepperctl. */
   configPath?: string;
+  /** Pepper's dedicated gws config dir — exported to agent shells. */
+  gwsConfigDir?: string;
   /** Extra writable roots inside the sandbox (e.g. the gws token directory). */
   additionalDirectories?: string[];
 }
@@ -63,7 +65,7 @@ export class CodexEngine implements Engine {
     this.db = opts.db;
     this.codexHome = opts.codexHome;
 
-    const { env, stripped } = agentEnv(opts.codexHome, opts.workspacePath, opts.configPath);
+    const { env, stripped } = agentEnv(opts.codexHome, opts.workspacePath, opts.configPath, opts.gwsConfigDir);
     if (stripped.length > 0) {
       logger.warn(
         { stripped },

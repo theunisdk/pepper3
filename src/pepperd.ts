@@ -36,6 +36,7 @@ async function main(): Promise<void> {
     workspacePath: cfg.workspacePath,
     codexHome: cfg.codexHome,
     configPath,
+    gwsConfigDir: cfg.gwsConfigDir,
     ...(cfg.model ? { model: cfg.model } : {}),
     ...(cfg.sandboxWritableRoots.length ? { additionalDirectories: cfg.sandboxWritableRoots } : {}),
   });

@@ -20,6 +20,7 @@ function ws(): PepperConfig {
     cronGraceMs: 60_000,
     threadNudgeTokens: 150_000,
     threadRotateTokens: 250_000,
+    gwsConfigDir: join(dir, 'gws-home'),
     sandboxWritableRoots: [],
   };
 }

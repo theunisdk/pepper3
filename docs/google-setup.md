@@ -67,32 +67,30 @@ The blob lands at `~pepper/pepper/google_client_secret.json` (0600).
 
 ### 3. Authorise on the box
 
+One guided command (note: `gws auth login` itself has **no** `--client-secret`
+flag — `pepperctl google` handles the staging):
+
 ```bash
 aws ssm start-session --region <region> --target <instance_id>
-sudo -u pepper -i
+sudo -u pepper -i && cd ~/app
 
-gws auth login --client-secret ~/pepper/google_client_secret.json
+PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js google \
+  --client-secret ~/pepper/google_client_secret.json
 ```
 
-It prints a URL. Open it anywhere, approve, paste the code back.
+The wizard: **validates** the client-secret JSON (structure, not just
+existence), stages it into Pepper's **dedicated gws config dir**
+(`gwsConfigDir`, default `~/pepper/gws-home` — her Google identity never
+collides with any gws you use on the same box), runs the interactive
+`gws auth login` (sign in as the Google account your assistant will BE),
+**verifies** the result via `gws auth status`, and wires the dir into
+`sandboxWritableRoots` so headless token refreshes persist. Then restart
+pepperd.
 
-Or let Pepper do this step and the next one together:
-
-    PEPPER_CONFIG=~/pepper/pepper.config.json node dist/pepperctl.js google \
-      --client-secret ~/pepper/google_client_secret.json
-
-`pepperctl google` runs the gws login, finds the token directory, adds it to
-`sandboxWritableRoots`, and reminds you to restart. The manual steps below
-remain as the fallback.
-
-Then tell Pepper's sandbox it may write where gws keeps its tokens — otherwise
-gws works now and dies in days when a headless token refresh can't persist.
-Find the directory with `gws auth status` (or check `~/.config/gws*`), add it to
-`pepper.config.json`:
-
-    "sandboxWritableRoots": ["~/.config/gws"]
-
-and restart pepperd.
+No OAuth client yet? If `gcloud` is installed, plain `pepperctl google` runs
+gws's automated setup (`gws auth setup --login`) — it creates the GCP project
+and OAuth client for you, no console clicking. Otherwise the command prints
+the exact manual steps.
 
 ### 4. Check it works
 

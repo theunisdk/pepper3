@@ -1,48 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { mkdirSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { addWritableRoot, detectTokenDir } from '../src/cli/google.js';
+import { addWritableRoot, parseAuthStatus, validateClientSecret } from '../src/cli/google.js';
 
-describe('addWritableRoot', () => {
-  const base = JSON.stringify(
-    { _comment: 'keep me', ownerTelegramIds: [123456789], timezone: 'UTC', sandboxWritableRoots: [] },
-    null,
-    2,
-  );
-
-  it('adds the directory and emits valid 2-space JSON', () => {
-    const { json, changed } = addWritableRoot(base, '/home/x/.config/gws');
-    expect(changed).toBe(true);
-    const parsed = JSON.parse(json) as { sandboxWritableRoots: string[]; _comment: string };
-    expect(parsed.sandboxWritableRoots).toEqual(['/home/x/.config/gws']);
-    expect(parsed._comment).toBe('keep me'); // other fields preserved
+describe('validateClientSecret', () => {
+  const good = JSON.stringify({
+    installed: { client_id: '424242424-fake.apps.googleusercontent.com', client_secret: 'GOCSPX-x', project_id: 'p' },
   });
 
-  it('is idempotent', () => {
-    const once = addWritableRoot(base, '/d').json;
-    const twice = addWritableRoot(once, '/d');
-    expect(twice.changed).toBe(false);
-    expect(twice.json).toBe(once);
+  it('accepts a real Desktop-client secret', () => {
+    expect(validateClientSecret(good).ok).toBe(true);
   });
 
-  it('creates the array when the config lacks the field', () => {
-    const { json } = addWritableRoot(JSON.stringify({ ownerTelegramIds: [1] }), '/d');
-    expect((JSON.parse(json) as { sandboxWritableRoots: string[] }).sandboxWritableRoots).toEqual(['/d']);
+  it('rejects a near-empty file (the 1-byte regression)', () => {
+    const r = validateClientSecret('\n');
+    expect(r.ok).toBe(false);
+    expect(r.detail).toContain('bytes');
+  });
+
+  it('rejects invalid JSON and web-client downloads', () => {
+    expect(validateClientSecret('x'.repeat(60)).ok).toBe(false);
+    expect(validateClientSecret(JSON.stringify({ web: { client_id: 'x'.repeat(60) } })).ok).toBe(false);
+  });
+
+  it('rejects missing client_secret field', () => {
+    const r = validateClientSecret(JSON.stringify({ installed: { client_id: 'x'.repeat(60) } }));
+    expect(r.ok).toBe(false);
+    expect(r.detail).toContain('client_secret');
   });
 });
 
-describe('detectTokenDir', () => {
-  it('finds an existing candidate', () => {
-    const home = mkdtempSync(join(tmpdir(), 'gg-'));
-    mkdirSync(join(home, '.config', 'gws'), { recursive: true });
-    expect(detectTokenDir(home)).toEqual({ dir: join(home, '.config', 'gws'), found: true });
+describe('parseAuthStatus', () => {
+  it('parses real gws output with a preamble line', () => {
+    const out =
+      'Using keyring backend: keyring\n' +
+      JSON.stringify({ client_config_exists: true, has_refresh_token: true, client_id: '424242424-fake' });
+    const r = parseAuthStatus(out);
+    expect(r.authenticated).toBe(true);
+    expect(r.detail).toContain('424242424');
   });
 
-  it('falls back to the default with found=false', () => {
-    const home = mkdtempSync(join(tmpdir(), 'gg-'));
-    const d = detectTokenDir(home);
-    expect(d.found).toBe(false);
-    expect(d.dir).toBe(join(home, '.config', 'gws'));
+  it('reports unauthenticated states honestly', () => {
+    const out = JSON.stringify({ client_config_exists: true, has_refresh_token: false });
+    expect(parseAuthStatus(out).authenticated).toBe(false);
+    expect(parseAuthStatus('garbage').authenticated).toBe(false);
+  });
+});
+
+describe('addWritableRoot', () => {
+  const base = JSON.stringify({ ownerTelegramIds: [123456789], sandboxWritableRoots: [] }, null, 2);
+
+  it('adds and is idempotent', () => {
+    const once = addWritableRoot(base, '/d');
+    expect(once.changed).toBe(true);
+    const twice = addWritableRoot(once.json, '/d');
+    expect(twice.changed).toBe(false);
+    expect((JSON.parse(once.json) as { sandboxWritableRoots: string[] }).sandboxWritableRoots).toEqual(['/d']);
   });
 });

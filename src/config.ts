@@ -27,6 +27,8 @@ export interface PepperConfig {
   threadNudgeTokens: number;
   /** Rotate the main thread automatically at this many input tokens. */
   threadRotateTokens: number;
+  /** Dedicated gws (Google Workspace CLI) config dir — Pepper's own Google identity, isolated from any gws use by the owner on the same box. */
+  gwsConfigDir: string;
   /**
    * Extra directories the agent's sandboxed shell may write to, beyond the
    * workspace. Needed by tools that persist state in $HOME — e.g. gws writes
@@ -101,6 +103,7 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
   const workspacePath = absolutise(str(c.workspacePath, env.PEPPER_WORKSPACE) ?? '~/pepper/workspace', baseDir);
   const codexHome = absolutise(str(c.codexHome, env.PEPPER_CODEX_HOME) ?? '~/pepper/codex-home', baseDir);
   const dbPath = absolutise(str(c.dbPath, env.PEPPER_DB) ?? '~/pepper/pepper.sqlite', baseDir);
+  const gwsConfigDir = absolutise(str(c.gwsConfigDir, env.PEPPER_GWS_CONFIG_DIR) ?? '~/pepper/gws-home', baseDir);
 
   const rootsRaw = c.sandboxWritableRoots ?? [];
   if (!Array.isArray(rootsRaw)) {
@@ -128,6 +131,7 @@ export function loadConfig(configPath: string, env: NodeJS.ProcessEnv = process.
     cronGraceMs: num(c.cronGraceMs) ?? DEFAULTS.cronGraceMs,
     threadNudgeTokens: num(c.threadNudgeTokens) ?? DEFAULTS.threadNudgeTokens,
     threadRotateTokens: num(c.threadRotateTokens) ?? DEFAULTS.threadRotateTokens,
+    gwsConfigDir,
     sandboxWritableRoots,
   };
   const model = str(c.model, env.PEPPER_MODEL);

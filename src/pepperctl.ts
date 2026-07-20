@@ -38,7 +38,7 @@ Management (local, work without the daemon):
   pepperctl setup [--owner-id N] [--tz Z] [--force] [--no-login]   First-run config wizard
   pepperctl login [--device-auth]             Log in to Codex against Pepper's CODEX_HOME
   pepperctl doctor                            Health checks: auth, skills link, daemon, roots
-  pepperctl google [--token-dir <p>] [gws args] Connect Google: gws auth + sandbox writable root
+  pepperctl google [--client-secret <json>]   Link a Google account (guided; validates + verifies)
 
 Modes:
   main      (default) Ask on the owner's own thread; their reply continues it.
@@ -194,8 +194,8 @@ async function main(): Promise<void> {
 
   if (argv[0] === 'google') {
     const configPath = resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json');
-    loadConfig(configPath); // fail fast with ConfigError guidance if absent/invalid
-    process.exit(runGoogle(configPath, argv.slice(1)));
+    const cfg = loadConfig(configPath);
+    process.exit(runGoogle(cfg, configPath, argv.slice(1)));
   }
 
   const cfg = loadConfig(resolve(process.env.PEPPER_CONFIG ?? 'pepper.config.json'));

@@ -6,6 +6,7 @@
   "timezone": "UTC",
   "workspacePath": "~/pepper/workspace",
   "codexHome": "~/pepper/codex-home",
+  "gwsConfigDir": "~/pepper/gws-home",
   "dbPath": "~/pepper/pepper.sqlite",
   "turnTimeoutMs": 600000,
   "standingContextBudget": 20000,

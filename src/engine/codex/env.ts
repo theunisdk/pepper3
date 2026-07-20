@@ -36,12 +36,16 @@ export function agentEnv(
   codexHome: string,
   workspacePath: string,
   configPath?: string,
+  gwsConfigDir?: string,
   env: NodeJS.ProcessEnv = process.env,
 ): SanitisedEnv {
   const result = sanitiseEnv(codexHome, env);
   const toolsDir = `${workspacePath}/tools`;
   result.env.PATH = result.env.PATH ? `${toolsDir}:${result.env.PATH}` : toolsDir;
   if (configPath) result.env.PEPPER_CONFIG = configPath;
+  // Pepper's own Google identity: gws in the sandbox always uses her dedicated
+  // config dir, never the owner's ~/.config/gws on the same box.
+  if (gwsConfigDir) result.env.GOOGLE_WORKSPACE_CLI_CONFIG_DIR = gwsConfigDir;
   return result;
 }
 
