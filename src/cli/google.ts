@@ -117,7 +117,7 @@ export function runGoogle(cfg: PepperConfig, configPath: string, argv: string[])
 
   // --client-secret <file>: validate, then stage into the dedicated dir.
   // (The positional email is ours too — never passed through to gws.)
-  const passThrough = argv.filter((a) => a !== expectedEmail);
+  const passThrough = argv.filter((a) => a !== expectedEmail && a !== '--setup');
   const csIdx = passThrough.indexOf('--client-secret');
   if (csIdx >= 0) {
     const src = passThrough[csIdx + 1];
@@ -143,10 +143,22 @@ export function runGoogle(cfg: PepperConfig, configPath: string, argv: string[])
       process.stderr.write(`No OAuth client configured and gcloud is not installed.\n\n${CONSOLE_STEPS}\n`);
       return 1;
     }
+    if (!argv.includes('--setup')) {
+      process.stderr.write(
+        'No OAuth client is configured for this assistant yet. Two ways forward:\n\n' +
+          '  Have a client-secret JSON already? (You do if another assistant used this\n' +
+          '  Google app before, or you created one in the console):\n' +
+          '      pepperctl google ' + (expectedEmail ?? '<account@email>') + ' --client-secret <file.json>\n\n' +
+          '  Starting from scratch? gcloud is installed, so this can create the GCP\n' +
+          '  project + OAuth client for you (Google requires an app identity for any\n' +
+          '  programmatic Gmail/Calendar access — the project is just where it lives):\n' +
+          '      pepperctl google ' + (expectedEmail ?? '<account@email>') + ' --setup\n',
+      );
+      return 1;
+    }
     process.stdout.write(
-      'No OAuth client configured. gcloud is available — running `gws auth setup --login`:\n' +
-        'it creates the GCP project + OAuth client, then signs in. Use the Google account\n' +
-        'your assistant will BE.\n',
+      'Running `gws auth setup --login`: it creates the GCP project + OAuth client,\n' +
+        'then signs in. Use the Google account your assistant will BE.\n',
     );
     const setup = spawnSync('gws', ['auth', 'setup', '--login'], { stdio: 'inherit', env: gwsEnv });
     if (setup.status !== 0) {
