@@ -21,8 +21,13 @@ import { getTodo, listTodos, renderTodoList, setStatus, tId, type Todo } from '.
 
 export type TodoButtonMode = 'list' | 'annotate';
 
-/** Max buttons on one message — keep annotated messages from ballooning. */
-export const MAX_BUTTONS = 12;
+/**
+ * Max buttons per message, by mode. The managed `/todos` list is meant to be
+ * tapped through, so it's generous (still well under Telegram's 100-button
+ * ceiling); an annotated arbitrary message keeps a tight cap so a report that
+ * name-drops many todos can't balloon into a wall of buttons.
+ */
+export const MAX_BUTTONS: Record<TodoButtonMode, number> = { list: 40, annotate: 12 };
 const PER_ROW = 3;
 
 function prefixFor(mode: TodoButtonMode): string {
@@ -31,7 +36,7 @@ function prefixFor(mode: TodoButtonMode): string {
 
 /** One "✓ Tn" button per todo, PER_ROW to a row. undefined if the list is empty. */
 export function todoKeyboard(todos: Todo[], mode: TodoButtonMode): InlineKeyboardMarkup | undefined {
-  const capped = todos.slice(0, MAX_BUTTONS);
+  const capped = todos.slice(0, MAX_BUTTONS[mode]);
   if (capped.length === 0) return undefined;
   const buttons = capped.map((t) => ({ text: `✓ ${tId(t)}`, callback_data: `${prefixFor(mode)}${t.id}` }));
   const rows = [];

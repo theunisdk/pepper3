@@ -46,10 +46,10 @@ describe('todoKeyboard', () => {
     expect(kb.inline_keyboard[0]![0]).toMatchObject({ text: '✓ T7', callback_data: 'td:7' });
   });
 
-  it('caps the number of buttons', () => {
-    const many = Array.from({ length: 30 }, (_, i) => todo(i + 1));
-    const kb = todoKeyboard(many, 'annotate')!;
-    expect(kb.inline_keyboard.flat()).toHaveLength(MAX_BUTTONS);
+  it('caps annotate buttons tightly but the list generously', () => {
+    const many = Array.from({ length: 60 }, (_, i) => todo(i + 1));
+    expect(todoKeyboard(many, 'annotate')!.inline_keyboard.flat()).toHaveLength(MAX_BUTTONS.annotate);
+    expect(todoKeyboard(many, 'list')!.inline_keyboard.flat()).toHaveLength(MAX_BUTTONS.list);
   });
 });
 
