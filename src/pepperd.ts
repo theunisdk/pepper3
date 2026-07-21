@@ -16,6 +16,7 @@ import { CodexEngine } from './engine/codex/adapter.js';
 import { ContextExhaustedError, EngineAuthError, type Engine } from './engine/types.js';
 import type { Job } from './db.js';
 import { listTodos, renderTodoList } from './todos.js';
+import { todoHooks } from './chat/todo-buttons.js';
 
 const MAIN_CHAT_KEY = 'main';
 const META_MAIN_CHAT_ID = 'main_chat_id';
@@ -155,6 +156,8 @@ async function main(): Promise<void> {
           return `Unknown command: ${cmd}`;
       }
     },
+    // A tap resolves straight against the store — no Engine, no turn queue.
+    todos: todoHooks(db),
   });
 
   const notify = async (text: string): Promise<void> => {
