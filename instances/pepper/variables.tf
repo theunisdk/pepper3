@@ -132,6 +132,30 @@ variable "s3_backup_retention_weeks" {
   default     = 12
 }
 
+variable "context_feed_bucket" {
+  description = "S3 bucket of an external context-feed producer to sync into the workspace. Empty disables it."
+  type        = string
+  default     = ""
+}
+
+variable "context_feed_prefix" {
+  description = "Key prefix within context_feed_bucket to sync (ends in /)"
+  type        = string
+  default     = "context/latest/"
+}
+
+variable "context_feed_kms_key_arn" {
+  description = "KMS key ARN to grant Decrypt on, if the feed bucket is SSE-KMS"
+  type        = string
+  default     = ""
+}
+
+variable "context_feed_dest" {
+  description = "Subdirectory under workspace/context/ the feed syncs into"
+  type        = string
+  default     = "concierge"
+}
+
 variable "additional_tags" {
   description = "Additional resource tags"
   type        = map(string)

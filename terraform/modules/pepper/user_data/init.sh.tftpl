@@ -52,6 +52,15 @@ EOF
 
 systemctl enable --now fail2ban || true
 
+# Codex sandboxes the agent's shell with bubblewrap, which needs unprivileged
+# user namespaces. Ubuntu 24.04 restricts these via AppArmor by default, making
+# bwrap fail with "setting up uid map: Permission denied" — so every agent turn
+# that runs a shell command dies. Re-allow them.
+cat > /etc/sysctl.d/99-pepper-userns.conf <<'USERNS'
+kernel.apparmor_restrict_unprivileged_userns = 0
+USERNS
+sysctl --system >/dev/null 2>&1 || true
+
 # -----------------------------------------------------------------------------
 # AWS CLI v2 — needed by the secrets fetcher
 # -----------------------------------------------------------------------------
@@ -284,6 +293,53 @@ EOF
 
   systemctl daemon-reload
   systemctl enable --now pepper-backup.timer
+fi
+
+# -----------------------------------------------------------------------------
+# Context feed sync (optional) — pull an external producer's snapshots into the
+# workspace on a timer, using the instance role (no static creds).
+# -----------------------------------------------------------------------------
+if [ -n "${context_feed_bucket}" ]; then
+  DEST="$STATE_DIR/workspace/context/${context_feed_dest}"
+  cat > /usr/local/sbin/pepper-context-sync <<SYNCEOF
+#!/bin/bash
+set -euo pipefail
+install -d -o "$PEPPER_USER" -g "$PEPPER_USER" "$DEST"
+aws --region "${aws_region}" s3 sync \
+  "s3://${context_feed_bucket}/${context_feed_prefix}" "$DEST/" --no-progress --delete
+SYNCEOF
+  chmod 0755 /usr/local/sbin/pepper-context-sync
+
+  cat > /etc/systemd/system/pepper-context-sync.service <<EOF
+[Unit]
+Description=Sync the context feed into Pepper's workspace
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$PEPPER_USER
+Group=$PEPPER_USER
+ExecStart=/usr/local/sbin/pepper-context-sync
+EOF
+
+  cat > /etc/systemd/system/pepper-context-sync.timer <<EOF
+[Unit]
+Description=Sync the context feed hourly, before triage
+
+[Timer]
+OnCalendar=*:${context_feed_sync_minute}
+Persistent=true
+RandomizedDelaySec=20
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now pepper-context-sync.timer
+  # Prime it immediately so the first triage has fresh data.
+  systemctl start pepper-context-sync.service || true
 fi
 
 # -----------------------------------------------------------------------------

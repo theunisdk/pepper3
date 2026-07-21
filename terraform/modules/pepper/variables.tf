@@ -199,6 +199,40 @@ variable "s3_backup_retention_weeks" {
 }
 
 # -----------------------------------------------------------------------------
+# CONTEXT FEED (optional external producer synced into the workspace)
+# -----------------------------------------------------------------------------
+
+variable "context_feed_bucket" {
+  description = "S3 bucket name of an external context-feed producer to sync into the workspace. Empty disables the feature."
+  type        = string
+  default     = ""
+}
+
+variable "context_feed_prefix" {
+  description = "Key prefix within context_feed_bucket to sync (must end in /)"
+  type        = string
+  default     = "context/latest/"
+}
+
+variable "context_feed_kms_key_arn" {
+  description = "KMS key ARN to grant Decrypt on, if the feed bucket is SSE-KMS. Empty for SSE-S3 buckets."
+  type        = string
+  default     = ""
+}
+
+variable "context_feed_dest" {
+  description = "Subdirectory under workspace/context/ the feed syncs into"
+  type        = string
+  default     = "concierge"
+}
+
+variable "context_feed_sync_minute" {
+  description = "Minute of each hour to sync the feed (kept before the triage job at :05)"
+  type        = string
+  default     = "01"
+}
+
+# -----------------------------------------------------------------------------
 # TAGGING
 # -----------------------------------------------------------------------------
 

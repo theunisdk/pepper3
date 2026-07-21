@@ -30,18 +30,22 @@ resource "aws_instance" "pepper" {
   }
 
   user_data = templatefile("${path.module}/user_data/init.sh.tftpl", {
-    pepper_user             = var.pepper_user
-    aws_region              = data.aws_region.current.name
-    repo_url                = var.pepper_repo_url
-    repo_ref                = var.pepper_repo_ref
-    timezone                = var.timezone
-    model                   = var.model
-    enable_google           = var.enable_google
-    secret_telegram         = aws_ssm_parameter.telegram_bot_token.name
-    secret_telegram_allowed = aws_ssm_parameter.telegram_allowed_users.name
-    secret_google           = var.enable_google ? aws_ssm_parameter.google_client_secret[0].name : ""
-    enable_s3_backups       = var.enable_s3_backups ? "true" : "false"
-    backup_bucket           = var.enable_s3_backups ? aws_s3_bucket.backups[0].bucket : ""
+    pepper_user              = var.pepper_user
+    aws_region               = data.aws_region.current.name
+    repo_url                 = var.pepper_repo_url
+    repo_ref                 = var.pepper_repo_ref
+    timezone                 = var.timezone
+    model                    = var.model
+    enable_google            = var.enable_google
+    secret_telegram          = aws_ssm_parameter.telegram_bot_token.name
+    secret_telegram_allowed  = aws_ssm_parameter.telegram_allowed_users.name
+    secret_google            = var.enable_google ? aws_ssm_parameter.google_client_secret[0].name : ""
+    enable_s3_backups        = var.enable_s3_backups ? "true" : "false"
+    backup_bucket            = var.enable_s3_backups ? aws_s3_bucket.backups[0].bucket : ""
+    context_feed_bucket      = var.context_feed_bucket
+    context_feed_prefix      = var.context_feed_prefix
+    context_feed_dest        = var.context_feed_dest
+    context_feed_sync_minute = var.context_feed_sync_minute
   })
 
   user_data_replace_on_change = false

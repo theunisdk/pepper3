@@ -53,6 +53,11 @@ module "pepper" {
   enable_s3_backups         = var.enable_s3_backups
   s3_backup_retention_weeks = var.s3_backup_retention_weeks
 
+  context_feed_bucket      = var.context_feed_bucket
+  context_feed_prefix      = var.context_feed_prefix
+  context_feed_kms_key_arn = var.context_feed_kms_key_arn
+  context_feed_dest        = var.context_feed_dest
+
   additional_tags = var.additional_tags
 }
 
