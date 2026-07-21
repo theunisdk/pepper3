@@ -36,6 +36,14 @@ export interface PepperConfig {
    * setup time and dies days later when a headless token refresh can't persist.
    */
   sandboxWritableRoots: string[];
+  /**
+   * Voice-note transcription (optional). Both must point at real files for
+   * voice to work: the whisper.cpp CLI binary and a ggml model. Unset = voice
+   * notes get a polite "can't process voice" reply. No API key involved — the
+   * subscription-only billing guard stays intact.
+   */
+  whisperBin?: string;
+  whisperModel?: string;
 }
 
 const DEFAULTS = {
@@ -149,6 +157,10 @@ export function loadConfig(
   };
   const model = str(c.model, env.PEPPER_MODEL);
   if (model) cfg.model = model;
+  const whisperBin = str(c.whisperBin, env.PEPPER_WHISPER_BIN);
+  if (whisperBin) cfg.whisperBin = absolutise(whisperBin, baseDir);
+  const whisperModel = str(c.whisperModel, env.PEPPER_WHISPER_MODEL);
+  if (whisperModel) cfg.whisperModel = absolutise(whisperModel, baseDir);
 
   if (cfg.turnTimeoutMs < 10_000) throw new ConfigError('turnTimeoutMs must be at least 10000 (10s).');
   if (cfg.dailyNoteDays < 0) throw new ConfigError('dailyNoteDays must be >= 0.');

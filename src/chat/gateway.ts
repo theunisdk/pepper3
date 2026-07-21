@@ -3,6 +3,7 @@ import type { InlineKeyboardMarkup } from 'grammy/types';
 import { logger } from '../logger.js';
 import { renderReply } from './format.js';
 import { parseTodoCallback, type TodoGatewayHooks } from './todo-buttons.js';
+import { voiceRefusal, type Transcriber } from './transcribe.js';
 
 export interface GatewayDeps {
   token: string;
@@ -16,6 +17,8 @@ export interface GatewayDeps {
   onOwnerChat: (chatId: number) => void;
   /** Tap-to-done todo buttons. */
   todos?: TodoGatewayHooks;
+  /** Local voice-note transcription. Absent = polite "can't do voice" reply. */
+  transcribe?: Transcriber;
 }
 
 const COMMANDS = ['new', 'status', 'jobs', 'cancel', 'soul', 'todos'] as const;
@@ -72,6 +75,45 @@ export class TelegramGateway {
         }
       });
     }
+
+    // Voice notes (and audio files): transcribe locally, echo what was heard,
+    // then feed the transcript through the SAME path as typed text — so
+    // coalescing, the turn queue, and every invariant apply unchanged.
+    this.bot.on(['message:voice', 'message:audio'], async (ctx) => {
+      const media = ctx.message.voice ?? ctx.message.audio;
+      if (!media) return;
+      if (!this.deps.transcribe) {
+        await this.reply(ctx, "I can't process voice notes on this deployment yet — type it instead?");
+        return;
+      }
+      const refusal = voiceRefusal(media.duration, media.file_size);
+      if (refusal) {
+        await this.reply(ctx, refusal);
+        return;
+      }
+      try {
+        await ctx.replyWithChatAction('typing').catch(() => {});
+        const file = await ctx.getFile();
+        if (!file.file_path) throw new Error('Telegram returned no file path');
+        const res = await fetch(`https://api.telegram.org/file/bot${this.deps.token}/${file.file_path}`);
+        if (!res.ok) throw new Error(`file download failed (${res.status})`);
+        const transcript = await this.deps.transcribe(Buffer.from(await res.arrayBuffer()));
+        // Echo the transcript first so mishearings are visible immediately.
+        await this.reply(ctx, `🎤 “${transcript}”`);
+        await ctx.replyWithChatAction('typing').catch(() => {});
+        const reply = await this.deps.onMessage(ctx.chat.id, transcript);
+        if (reply) await this.reply(ctx, reply);
+      } catch (e) {
+        const err = e as Error;
+        logger.error({ err: err.message }, 'voice note handling failed');
+        await this.reply(
+          ctx,
+          err.name === 'AbortError'
+            ? 'That took too long, so I stopped it.'
+            : "I couldn't make out that voice note — try again or type it?",
+        );
+      }
+    });
 
     this.bot.on('message:text', async (ctx) => {
       const text = ctx.message.text;
