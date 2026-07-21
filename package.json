@@ -1,6 +1,6 @@
 {
   "name": "pepper",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "description": "A template for a deterministic, single-user personal AI assistant: Telegram + Codex + cron, on your own EC2 box.",
   "license": "MIT",
