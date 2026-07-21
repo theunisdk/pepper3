@@ -97,9 +97,11 @@ sudo -u "$PEPPER_USER" bash -lc "cd $APP_DIR && npm ci && npm run build && npm p
   || { echo "BUILD FAILED — see above. Fix and re-run: sudo -u $PEPPER_USER bash -lc 'cd $APP_DIR && npm ci && npm run build'"; }
 
 # Config. Secrets are NOT in here; they arrive via the environment.
+# Note: ownerTelegramIds is intentionally NOT set here. It comes from the
+# PEPPER_OWNER_TELEGRAM_IDS env var (SSM -> pepper.env); an explicit [] in the
+# config would shadow that env var and the daemon would refuse to start.
 cat > "$STATE_DIR/pepper.config.json" <<EOF
 {
-  "ownerTelegramIds": [],
   "timezone": "${timezone}",
   $( [ -n "${model}" ] && echo "\"model\": \"${model}\"," )
   $( [ "${enable_google}" = "true" ] && echo "\"gwsConfigDir\": \"$STATE_DIR/gws-home\"," )
