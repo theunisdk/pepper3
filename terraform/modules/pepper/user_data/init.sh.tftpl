@@ -91,7 +91,9 @@ else
   sudo -u "$PEPPER_USER" git -C "$APP_DIR" checkout -f FETCH_HEAD
 fi
 
-sudo -u "$PEPPER_USER" bash -lc "cd $APP_DIR && npm ci --omit=dev && npm run build" \
+# Full install (the build needs devDependencies — tsc lives there), build, then
+# prune dev deps to keep the runtime lean.
+sudo -u "$PEPPER_USER" bash -lc "cd $APP_DIR && npm ci && npm run build && npm prune --omit=dev" \
   || { echo "BUILD FAILED — see above. Fix and re-run: sudo -u $PEPPER_USER bash -lc 'cd $APP_DIR && npm ci && npm run build'"; }
 
 # Config. Secrets are NOT in here; they arrive via the environment.
