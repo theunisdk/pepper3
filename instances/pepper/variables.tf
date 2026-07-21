@@ -120,6 +120,18 @@ variable "snapshot_retention_count" {
   default     = 7
 }
 
+variable "enable_s3_backups" {
+  description = "Weekly logical backup (workspace + DB + Google auth) to a dedicated KMS-encrypted S3 bucket"
+  type        = bool
+  default     = true
+}
+
+variable "s3_backup_retention_weeks" {
+  description = "Weeks of S3 backups to keep before lifecycle expiry"
+  type        = number
+  default     = 12
+}
+
 variable "additional_tags" {
   description = "Additional resource tags"
   type        = map(string)

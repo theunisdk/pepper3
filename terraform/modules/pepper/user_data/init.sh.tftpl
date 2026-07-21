@@ -31,7 +31,7 @@ STATE_DIR="$PEPPER_HOME/pepper"
 apt-get update -y
 apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 apt-get install -y \
-  ca-certificates curl unzip jq git \
+  ca-certificates curl unzip jq git sqlite3 \
   build-essential python3 \
   ufw fail2ban unattended-upgrades \
   ripgrep
@@ -100,6 +100,8 @@ cat > "$STATE_DIR/pepper.config.json" <<EOF
   "ownerTelegramIds": [],
   "timezone": "${timezone}",
   $( [ -n "${model}" ] && echo "\"model\": \"${model}\"," )
+  $( [ "${enable_google}" = "true" ] && echo "\"gwsConfigDir\": \"$STATE_DIR/gws-home\"," )
+  $( [ "${enable_google}" = "true" ] && echo "\"sandboxWritableRoots\": [\"$STATE_DIR/gws-home\"]," )
   "workspacePath": "$STATE_DIR/workspace",
   "codexHome": "$STATE_DIR/codex-home",
   "dbPath": "$STATE_DIR/pepper.sqlite"
@@ -235,6 +237,49 @@ if [ "${enable_google}" = "true" ]; then
   sudo -u "$PEPPER_USER" bash -lc 'npm install -g --prefix ~/.local @googleworkspace/cli' \
     || echo "gws install failed — install it by hand later"
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$PEPPER_HOME/.bashrc"
+fi
+
+# -----------------------------------------------------------------------------
+# Weekly S3 logical backup (script lives in the repo; a systemd timer runs it)
+# -----------------------------------------------------------------------------
+if [ "${enable_s3_backups}" = "true" ] && [ -n "${backup_bucket}" ]; then
+  cat > /usr/local/sbin/pepper-backup <<WRAPEOF
+#!/bin/bash
+export PEPPER_BACKUP_BUCKET="${backup_bucket}"
+export PEPPER_STATE_DIR="$STATE_DIR"
+export AWS_REGION="${aws_region}"
+exec /bin/bash "$APP_DIR/scripts/pepper-backup.sh"
+WRAPEOF
+  chmod 0755 /usr/local/sbin/pepper-backup
+
+  cat > /etc/systemd/system/pepper-backup.service <<EOF
+[Unit]
+Description=Pepper weekly logical backup to S3
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$PEPPER_USER
+Group=$PEPPER_USER
+ExecStart=/usr/local/sbin/pepper-backup
+EOF
+
+  cat > /etc/systemd/system/pepper-backup.timer <<'EOF'
+[Unit]
+Description=Run Pepper backup weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now pepper-backup.timer
 fi
 
 # -----------------------------------------------------------------------------

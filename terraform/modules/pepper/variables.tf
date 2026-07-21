@@ -173,6 +173,32 @@ variable "snapshot_time_utc" {
 }
 
 # -----------------------------------------------------------------------------
+# BACKUPS (S3 logical archive)
+# -----------------------------------------------------------------------------
+
+variable "enable_s3_backups" {
+  description = <<-EOT
+    Create a dedicated, KMS-encrypted S3 bucket and a weekly on-box timer that
+    uploads a tar.gz of the assistant's logical state (workspace + SQLite DB +
+    Google auth). Portable, off-instance restore that survives instance/volume
+    deletion — complements the EBS snapshots.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "s3_backup_retention_weeks" {
+  description = "How many weeks of S3 backups to keep before lifecycle expiry ages them out"
+  type        = number
+  default     = 12
+
+  validation {
+    condition     = var.s3_backup_retention_weeks >= 1 && var.s3_backup_retention_weeks <= 520
+    error_message = "s3_backup_retention_weeks must be between 1 and 520."
+  }
+}
+
+# -----------------------------------------------------------------------------
 # TAGGING
 # -----------------------------------------------------------------------------
 

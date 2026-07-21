@@ -50,6 +50,9 @@ module "pepper" {
   enable_snapshots         = var.enable_snapshots
   snapshot_retention_count = var.snapshot_retention_count
 
+  enable_s3_backups         = var.enable_s3_backups
+  s3_backup_retention_weeks = var.s3_backup_retention_weeks
+
   additional_tags = var.additional_tags
 }
 
@@ -66,6 +69,11 @@ output "instance_public_ip" {
 output "ssm_session_command" {
   description = "Open a shell on the instance"
   value       = module.pepper.ssm_session_command
+}
+
+output "backup_bucket_name" {
+  description = "S3 bucket holding weekly logical backups"
+  value       = module.pepper.backup_bucket_name
 }
 
 output "secret_names" {

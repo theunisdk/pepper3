@@ -28,6 +28,11 @@ timezone = "UTC"
 # instance_type    = "t3.small"
 # root_volume_size = 30
 
+# Weekly logical backup to a dedicated KMS-encrypted S3 bucket (on top of the
+# daily EBS snapshots). Portable, off-instance restore. On by default.
+# enable_s3_backups         = true
+# s3_backup_retention_weeks = 12
+
 # Change if 10.150.x collides with something you already run.
 # vpc_cidr           = "10.150.0.0/16"
 # public_subnet_cidr = "10.150.1.0/24"

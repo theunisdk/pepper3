@@ -28,6 +28,11 @@ output "ssm_session_command" {
   value       = "aws ssm start-session --region ${data.aws_region.current.name} --target ${aws_instance.pepper.id}"
 }
 
+output "backup_bucket_name" {
+  description = "S3 bucket holding weekly logical backups (empty if disabled)"
+  value       = var.enable_s3_backups ? aws_s3_bucket.backups[0].bucket : ""
+}
+
 output "populate_secrets_commands" {
   description = "Run these after apply to set the real secret values. (telegram_allowed_users is terraform-managed and not listed.)"
   value = {

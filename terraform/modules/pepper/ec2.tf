@@ -40,6 +40,8 @@ resource "aws_instance" "pepper" {
     secret_telegram         = aws_ssm_parameter.telegram_bot_token.name
     secret_telegram_allowed = aws_ssm_parameter.telegram_allowed_users.name
     secret_google           = var.enable_google ? aws_ssm_parameter.google_client_secret[0].name : ""
+    enable_s3_backups       = var.enable_s3_backups ? "true" : "false"
+    backup_bucket           = var.enable_s3_backups ? aws_s3_bucket.backups[0].bucket : ""
   })
 
   user_data_replace_on_change = false
