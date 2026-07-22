@@ -102,8 +102,9 @@ the type; it has never been run against real Codex.
 A probe (`'vision (local_image) input'`) has been **added to `scripts/spike.ts`** (section 5,
 after the control-socket test). It builds a test image through the real attachment-processor
 pipeline (a minimal 1-page PDF containing the text "PEPPER PDF OK"), sends it to a fresh
-thread as `{ type: 'local_image', path }`, and checks whether the model's reply mentions the
-image content.
+thread as `{ type: 'local_image', path }`, and checks whether the model's reply contains
+"PDF OK" or "PEPPER PDF OK" — phrases that appear only in the rendered image, not in the
+spike's AGENTS.md context, ensuring a PASS is genuine image-reading evidence.
 
 **This has not been run yet.** It requires a box with a valid `codex login` — the environment
 that added this probe has none. The owner must run:

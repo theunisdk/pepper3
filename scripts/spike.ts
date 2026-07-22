@@ -208,7 +208,7 @@ async function main(): Promise<void> {
         { type: 'local_image', path: processed.images[0]! },
       ]);
       const reply = turn.finalResponse.toLowerCase();
-      const seen = reply.includes('pepper pdf ok') || reply.includes('pepper');
+      const seen = reply.includes('pepper pdf ok') || reply.includes('pdf ok');
       record(
         'vision (local_image) input',
         seen ? 'PASS' : 'FAIL',
