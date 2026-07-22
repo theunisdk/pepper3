@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TurnQueue } from '../src/chat/queue.js';
+import type { TurnInput } from '../src/engine/types.js';
 
 const defer = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -99,7 +100,7 @@ describe('TurnQueue', () => {
   });
 
   it('coalesces text and concatenates image paths into one turn', async () => {
-    const seen: import('../src/engine/types.js').TurnInput[] = [];
+    const seen: TurnInput[] = [];
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const q = new TurnQueue({
@@ -122,9 +123,34 @@ describe('TurnQueue', () => {
   });
 
   it('defaults images to empty for a text-only submit', async () => {
-    const seen: import('../src/engine/types.js').TurnInput[] = [];
+    const seen: TurnInput[] = [];
     const q = new TurnQueue({ timeoutMs: 1000, run: async (i) => (seen.push(i), 'ok') });
     await q.submit('hello');
     expect(seen[0]).toEqual({ text: 'hello', images: [] });
+  });
+
+  it('merges image paths from multiple mid-turn submits into one coalesced turn', async () => {
+    const seen: TurnInput[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const q = new TurnQueue({
+      timeoutMs: 1000,
+      run: async (input) => {
+        seen.push(input);
+        if (seen.length === 1) await gate; // hold turn 1 open so the next two submits share turn 2
+        return 'ok';
+      },
+    });
+
+    const first = q.submit('one', ['/u/a.png']); // turn 1, held open
+    q.submit('two', ['/u/p1.png']); // creates pending turn 2 (new-pending)
+    q.submit('three', ['/u/p2.png', '/u/p3.png']); // MERGES into pending turn 2
+    release();
+    await first;
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toEqual({ text: 'one', images: ['/u/a.png'] });
+    expect(seen[1]).toEqual({ text: 'two\nthree', images: ['/u/p1.png', '/u/p2.png', '/u/p3.png'] });
   });
 });
