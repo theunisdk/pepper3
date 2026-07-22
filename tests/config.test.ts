@@ -97,4 +97,22 @@ describe('document upload knobs', () => {
       /pdfMaxImagePages/,
     );
   });
+
+  it('rejects a fractional pdfMaxImagePages', () => {
+    expect(() => loadConfig(writeCfg({ ownerTelegramIds: [1], pdfMaxImagePages: 2.5 }))).toThrow(
+      /pdfMaxImagePages/,
+    );
+  });
+
+  it('rejects attachmentMaxBytes below 1024', () => {
+    expect(() => loadConfig(writeCfg({ ownerTelegramIds: [1], attachmentMaxBytes: 100 }))).toThrow(
+      /attachmentMaxBytes/,
+    );
+  });
+
+  it('rejects a negative uploadsRetentionDays', () => {
+    expect(() => loadConfig(writeCfg({ ownerTelegramIds: [1], uploadsRetentionDays: -1 }))).toThrow(
+      /uploadsRetentionDays/,
+    );
+  });
 });

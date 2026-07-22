@@ -181,7 +181,9 @@ export function loadConfig(
   if (cfg.threadRotateTokens <= cfg.threadNudgeTokens) {
     throw new ConfigError('threadRotateTokens must be greater than threadNudgeTokens.');
   }
-  if (cfg.pdfMaxImagePages <= 0) throw new ConfigError('pdfMaxImagePages must be a positive integer.');
+  if (!Number.isInteger(cfg.pdfMaxImagePages) || cfg.pdfMaxImagePages <= 0) {
+    throw new ConfigError('pdfMaxImagePages must be a positive integer.');
+  }
   if (cfg.attachmentMaxBytes < 1024) throw new ConfigError('attachmentMaxBytes must be at least 1024.');
   if (cfg.uploadsRetentionDays < 0) throw new ConfigError('uploadsRetentionDays must be >= 0.');
 
