@@ -91,3 +91,30 @@ requirements 2, 4, and 5.
 npx @openai/codex login     # browser, or --device-auth on a headless box
 npm run spike               # must be green before M4/deploy
 ```
+
+## PENDING — vision (`local_image`) probe (added 2026-07-22)
+
+The document-upload feature (PDF pages rasterised to images, sent to the model as
+`local_image` blocks — see `src/chat/attachments.ts`) rests on one unverified assumption:
+that the subscription Codex model actually *sees* a `local_image` input. The SDK exposes
+the type; it has never been run against real Codex.
+
+A probe (`'vision (local_image) input'`) has been **added to `scripts/spike.ts`** (section 5,
+after the control-socket test). It builds a test image through the real attachment-processor
+pipeline (a minimal 1-page PDF containing the text "PEPPER PDF OK"), sends it to a fresh
+thread as `{ type: 'local_image', path }`, and checks whether the model's reply mentions the
+image content.
+
+**This has not been run yet.** It requires a box with a valid `codex login` — the environment
+that added this probe has none. The owner must run:
+
+```bash
+CODEX_HOME=<their codex home> npm run spike
+```
+
+and record the PASS/FAIL/SKIP verdict for `vision (local_image) input` in this file (SKIP is
+expected if poppler-utils isn't installed on that box).
+
+**If it FAILS** (Codex ignores or cannot use `local_image` on the subscription), the
+PDF-vision route is unavailable and the document-upload feature must fall back to the
+`pdftotext`-only path (extracted text still sent, no page images) until/unless that changes.

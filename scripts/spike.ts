@@ -21,6 +21,22 @@ import { sanitiseEnv } from '../src/engine/codex/env.js';
 const CANARY = 'CANARY-OK-8891';
 const results: { test: string; verdict: 'PASS' | 'FAIL' | 'SKIP'; detail: string }[] = [];
 
+// A minimal single-page PDF containing the text "PEPPER PDF OK" — copied verbatim from
+// tests/attachments.test.ts, verified to rasterize/extract with the installed poppler.
+const SAMPLE_PDF = Buffer.from(
+  `%PDF-1.4
+1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
+2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj
+3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>endobj
+4 0 obj<< /Length 44 >>stream
+BT /F1 18 Tf 20 100 Td (PEPPER PDF OK) Tj ET
+endstream endobj
+5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj
+trailer<< /Root 1 0 R >>
+%%EOF`,
+  'latin1',
+);
+
 function record(test: string, verdict: 'PASS' | 'FAIL' | 'SKIP', detail: string): void {
   const colour = verdict === 'PASS' ? '\x1b[32m' : verdict === 'SKIP' ? '\x1b[33m' : '\x1b[31m';
   console.log(`${colour}${verdict.padEnd(4)}\x1b[0m ${test}\n     ${detail}\n`);
@@ -168,6 +184,39 @@ async function main(): Promise<void> {
     record('control socket reachable from sandbox', 'FAIL', String(e).slice(0, 200));
   } finally {
     server.close();
+  }
+
+  // --- 5. vision (local_image) input -----------------------------------------
+  // The document-upload feature rests on this: does the subscription model actually
+  // SEE a local_image input? The SDK exposes the type but it's never been run against
+  // real Codex. Build the test image through the real production path (attachments.ts)
+  // so this probes the actual pipeline, and gets graceful poppler-absence handling free.
+  try {
+    const { createAttachmentProcessor } = await import('../src/chat/attachments.js');
+    const proc = createAttachmentProcessor({ workspacePath: ws, pdfMaxImagePages: 20 });
+    const processed = await proc({ buffer: SAMPLE_PDF, filename: 'vision.pdf', mime: 'application/pdf' });
+    if (processed.images.length === 0) {
+      record(
+        'vision (local_image) input',
+        'SKIP',
+        "attachment processor produced no page images — poppler-utils isn't installed, so vision couldn't be probed",
+      );
+    } else {
+      const t = codex.startThread(threadOptions);
+      const turn = await t.run([
+        { type: 'text', text: 'What text is written in this image? Reply with only that text.' },
+        { type: 'local_image', path: processed.images[0]! },
+      ]);
+      const reply = turn.finalResponse.toLowerCase();
+      const seen = reply.includes('pepper pdf ok') || reply.includes('pepper');
+      record(
+        'vision (local_image) input',
+        seen ? 'PASS' : 'FAIL',
+        seen ? `model read the image: ${turn.finalResponse.slice(0, 200)}` : `image content not seen in reply: ${turn.finalResponse.slice(0, 200)}`,
+      );
+    }
+  } catch (e) {
+    record('vision (local_image) input', 'FAIL', String(e).slice(0, 300));
   }
 
   // --- summary --------------------------------------------------------------
