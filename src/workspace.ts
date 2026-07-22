@@ -42,7 +42,7 @@ export function initWorkspace(cfg: PepperConfig, configPath?: string): Workspace
     logger.info({ workspace: cfg.workspacePath }, 'created workspace from template');
   }
 
-  for (const sub of ['notes', 'skills', 'tools', 'run']) {
+  for (const sub of ['notes', 'skills', 'tools', 'run', 'uploads']) {
     mkdirSync(join(cfg.workspacePath, sub), { recursive: true });
   }
   mkdirSync(cfg.codexHome, { recursive: true });

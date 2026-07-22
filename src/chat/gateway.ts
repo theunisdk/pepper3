@@ -10,7 +10,7 @@ export interface GatewayDeps {
   token: string;
   /** Numeric Telegram user IDs allowed to talk to the bot. */
   ownerIds: number[];
-  /** Handle a normal (non-command) message. Returns the reply, or '' for none. */
+  /** Handle a normal (non-command) message, optionally with local image paths from an attachment. Returns the reply, or '' for none. */
   onMessage: (chatId: number, text: string, images?: string[]) => Promise<string>;
   /** Handle a slash command out-of-band. */
   onCommand: (chatId: number, command: string) => Promise<string>;

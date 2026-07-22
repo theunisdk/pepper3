@@ -18,7 +18,7 @@ import type { Job } from './db.js';
 import { listTodos, renderTodoList } from './todos.js';
 import { todoHooks } from './chat/todo-buttons.js';
 import { createTranscriber } from './chat/transcribe.js';
-import { createAttachmentProcessor } from './chat/attachments.js';
+import { createAttachmentProcessor, pruneUploads } from './chat/attachments.js';
 
 const MAIN_CHAT_KEY = 'main';
 const META_MAIN_CHAT_ID = 'main_chat_id';
@@ -31,6 +31,7 @@ async function main(): Promise<void> {
   const token = requireBotToken();
 
   const ws = initWorkspace(cfg, configPath);
+  pruneUploads(cfg.workspacePath, cfg.uploadsRetentionDays);
   if (!ws.skillsLinked) logger.warn({ detail: ws.skillsDetail }, 'skills are NOT linked — authored skills will be ignored');
 
   const db = openDb(cfg.dbPath);
@@ -78,14 +79,13 @@ async function main(): Promise<void> {
     clearThreadHygiene();
   }
 
-  async function runOnMain(turnInput: TurnInput, signal: AbortSignal): Promise<string> {
-    // TODO(images): turnInput.images is not yet threaded into engine.runTurn — a later task wires it up.
-    const prompt = turnInput.text;
-    const input = isNewThread(MAIN_CHAT_KEY)
-      ? firstTurnInput(cfg, prompt)
-      : withDateHeader(prompt, cfg.timezone);
+  async function runOnMain(input: TurnInput, signal: AbortSignal): Promise<string> {
+    const text = isNewThread(MAIN_CHAT_KEY)
+      ? firstTurnInput(cfg, input.text)
+      : withDateHeader(input.text, cfg.timezone);
+    const turnInput: TurnInput = { text, ...(input.images && input.images.length ? { images: input.images } : {}) };
     try {
-      const res = await engine.runTurn(MAIN_CHAT_KEY, input, signal);
+      const res = await engine.runTurn(MAIN_CHAT_KEY, turnInput, signal);
 
       // Daemon-owned thread hygiene: nudge once as the thread gets long,
       // rotate outright before it gets pathological. Rotation is cheap —
@@ -109,7 +109,11 @@ async function main(): Promise<void> {
         // context length, reset and retry with standing context.
         logger.warn('context exhausted — resetting thread');
         await resetMainThread();
-        const res = await engine.runTurn(MAIN_CHAT_KEY, firstTurnInput(cfg, prompt), signal);
+        const retry: TurnInput = {
+          text: firstTurnInput(cfg, input.text),
+          ...(input.images && input.images.length ? { images: input.images } : {}),
+        };
+        const res = await engine.runTurn(MAIN_CHAT_KEY, retry, signal);
         return `_(Started a fresh thread — the old one got too long. My notes and memory carried over.)_\n\n${res.text}`;
       }
       if (err instanceof EngineAuthError) {
@@ -123,7 +127,6 @@ async function main(): Promise<void> {
   // Isolated jobs get their own slot so a long report doesn't block chat.
   const isolatedQueue = new TurnQueue({
     timeoutMs: cfg.turnTimeoutMs,
-    // TODO(images): input.images is not yet threaded into engine.runIsolated — a later task wires it up.
     run: async (input, signal) => (await engine.runIsolated(firstTurnInput(cfg, input.text), signal)).text,
   });
 
@@ -138,7 +141,7 @@ async function main(): Promise<void> {
         logger.info({ chatId }, 'main chat established');
       }
     },
-    onMessage: (_chatId, text) => queue.submit(text),
+    onMessage: (_chatId, text, images) => queue.submit(text, images),
     onCommand: async (_chatId, cmd) => {
       switch (cmd) {
         case 'new':
