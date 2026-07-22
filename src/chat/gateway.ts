@@ -1,6 +1,7 @@
 import { Bot, type Context } from 'grammy';
 import type { InlineKeyboardMarkup } from 'grammy/types';
 import { logger } from '../logger.js';
+import { attachmentRefusal, type AttachmentProcessor } from './attachments.js';
 import { renderReply } from './format.js';
 import { parseTodoCallback, type TodoGatewayHooks } from './todo-buttons.js';
 import { voiceRefusal, type Transcriber } from './transcribe.js';
@@ -10,7 +11,7 @@ export interface GatewayDeps {
   /** Numeric Telegram user IDs allowed to talk to the bot. */
   ownerIds: number[];
   /** Handle a normal (non-command) message. Returns the reply, or '' for none. */
-  onMessage: (chatId: number, text: string) => Promise<string>;
+  onMessage: (chatId: number, text: string, images?: string[]) => Promise<string>;
   /** Handle a slash command out-of-band. */
   onCommand: (chatId: number, command: string) => Promise<string>;
   /** Called with the first owner chat we see, so proactive sends have a target. */
@@ -19,6 +20,10 @@ export interface GatewayDeps {
   todos?: TodoGatewayHooks;
   /** Local voice-note transcription. Absent = polite "can't do voice" reply. */
   transcribe?: Transcriber;
+  /** Turn an uploaded file into text + local image paths. */
+  attachments: AttachmentProcessor;
+  /** Reject uploads larger than this before downloading. */
+  attachmentMaxBytes: number;
 }
 
 const COMMANDS = ['new', 'status', 'jobs', 'cancel', 'soul', 'todos'] as const;
@@ -111,6 +116,48 @@ export class TelegramGateway {
           err.name === 'AbortError'
             ? 'That took too long, so I stopped it.'
             : "I couldn't make out that voice note — try again or type it?",
+        );
+      }
+    });
+
+    // Documents & photos: download, run through the attachment processor, then
+    // feed the result through the SAME onMessage path as text — coalescing and
+    // the turn queue apply unchanged. Images become local_image (vision); PDFs
+    // become page images + extracted text; office binaries are saved, not sent.
+    this.bot.on(['message:document', 'message:photo'], async (ctx) => {
+      const doc = ctx.message.document;
+      const photo = doc ? undefined : ctx.message.photo?.[ctx.message.photo.length - 1];
+      const sizeBytes = doc?.file_size ?? photo?.file_size;
+
+      const refusal = attachmentRefusal(sizeBytes, this.deps.attachmentMaxBytes);
+      if (refusal) {
+        await this.reply(ctx, refusal);
+        return;
+      }
+      try {
+        await ctx.replyWithChatAction('typing').catch(() => {});
+        const file = await ctx.getFile();
+        if (!file.file_path) throw new Error('Telegram returned no file path');
+        const res = await fetch(`https://api.telegram.org/file/bot${this.deps.token}/${file.file_path}`);
+        if (!res.ok) throw new Error(`file download failed (${res.status})`);
+        const buffer = Buffer.from(await res.arrayBuffer());
+
+        const { text, images } = await this.deps.attachments({
+          buffer,
+          filename: doc?.file_name ?? (photo ? 'photo.jpg' : 'file'),
+          mime: doc?.mime_type ?? (photo ? 'image/jpeg' : ''),
+          ...(ctx.message.caption ? { caption: ctx.message.caption } : {}),
+        });
+
+        await ctx.replyWithChatAction('typing').catch(() => {});
+        const reply = await this.deps.onMessage(ctx.chat.id, text, images);
+        if (reply) await this.reply(ctx, reply);
+      } catch (e) {
+        const err = e as Error;
+        logger.error({ err: err.message }, 'attachment handling failed');
+        await this.reply(
+          ctx,
+          err.name === 'AbortError' ? 'That took too long, so I stopped it.' : "I couldn't read that file — try again?",
         );
       }
     });

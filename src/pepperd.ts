@@ -18,6 +18,7 @@ import type { Job } from './db.js';
 import { listTodos, renderTodoList } from './todos.js';
 import { todoHooks } from './chat/todo-buttons.js';
 import { createTranscriber } from './chat/transcribe.js';
+import { createAttachmentProcessor } from './chat/attachments.js';
 
 const MAIN_CHAT_KEY = 'main';
 const META_MAIN_CHAT_ID = 'main_chat_id';
@@ -165,6 +166,8 @@ async function main(): Promise<void> {
     ...(cfg.whisperBin && cfg.whisperModel
       ? { transcribe: createTranscriber({ whisperBin: cfg.whisperBin, whisperModel: cfg.whisperModel }) }
       : {}),
+    attachments: createAttachmentProcessor({ workspacePath: cfg.workspacePath, pdfMaxImagePages: cfg.pdfMaxImagePages }),
+    attachmentMaxBytes: cfg.attachmentMaxBytes,
   });
 
   const notify = async (text: string): Promise<void> => {
