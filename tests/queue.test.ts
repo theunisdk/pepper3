@@ -14,7 +14,7 @@ describe('TurnQueue', () => {
         maxConcurrent = Math.max(maxConcurrent, concurrent);
         await defer(20);
         concurrent--;
-        return input;
+        return input.text;
       },
     });
 
@@ -33,7 +33,7 @@ describe('TurnQueue', () => {
     const q = new TurnQueue({
       timeoutMs: 5000,
       run: async (input) => {
-        seen.push(input);
+        seen.push(input.text);
         await defer(30);
         return 'ok';
       },
@@ -96,5 +96,35 @@ describe('TurnQueue', () => {
     });
     await expect(q.submit('a')).rejects.toThrow('boom');
     await expect(q.submit('b')).resolves.toBe('recovered');
+  });
+
+  it('coalesces text and concatenates image paths into one turn', async () => {
+    const seen: import('../src/engine/types.js').TurnInput[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const q = new TurnQueue({
+      timeoutMs: 1000,
+      run: async (input) => {
+        seen.push(input);
+        if (seen.length === 1) await gate; // hold the first turn open
+        return 'ok';
+      },
+    });
+
+    const first = q.submit('caption', ['/u/a.png']); // starts turn 1
+    q.submit('and the pdf', ['/u/p1.png', '/u/p2.png']); // coalesced into turn 2
+    release();
+    await first;
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(seen[0]).toEqual({ text: 'caption', images: ['/u/a.png'] });
+    expect(seen[1]).toEqual({ text: 'and the pdf', images: ['/u/p1.png', '/u/p2.png'] });
+  });
+
+  it('defaults images to empty for a text-only submit', async () => {
+    const seen: import('../src/engine/types.js').TurnInput[] = [];
+    const q = new TurnQueue({ timeoutMs: 1000, run: async (i) => (seen.push(i), 'ok') });
+    await q.submit('hello');
+    expect(seen[0]).toEqual({ text: 'hello', images: [] });
   });
 });

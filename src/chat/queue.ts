@@ -1,8 +1,11 @@
 import { logger } from '../logger.js';
+import type { TurnInput } from '../engine/types.js';
 
 export interface QueuedTurn {
   /** Lines to send as one turn. Coalesced messages accumulate here. */
   inputs: string[];
+  /** Image paths accumulated across coalesced messages. */
+  images: string[];
   resolve: (text: string) => void;
   reject: (err: Error) => void;
 }
@@ -11,7 +14,7 @@ export interface TurnQueueOptions {
   /** Abort a turn after this long. */
   timeoutMs: number;
   /** Runs one turn. Must honour the signal. */
-  run: (input: string, signal: AbortSignal) => Promise<string>;
+  run: (input: TurnInput, signal: AbortSignal) => Promise<string>;
 }
 
 /**
@@ -44,16 +47,17 @@ export class TurnQueue {
    * Submit a message. If a turn is already running, this message is merged with
    * any other waiting messages and they run together as one turn.
    */
-  submit(input: string): Promise<string> {
+  submit(input: string, images: string[] = []): Promise<string> {
     if (this.pending) {
       // Merge into the waiting turn; the caller who queued first gets the reply.
       this.pending.inputs.push(input);
+      this.pending.images.push(...images);
       logger.debug({ merged: this.pending.inputs.length }, 'coalesced message into pending turn');
       return Promise.resolve('');
     }
 
     return new Promise<string>((resolve, reject) => {
-      this.pending = { inputs: [input], resolve, reject };
+      this.pending = { inputs: [input], images: [...images], resolve, reject };
       void this.drain();
     });
   }
@@ -78,7 +82,7 @@ export class TurnQueue {
         const timer = setTimeout(() => ac.abort(), this.opts.timeoutMs);
 
         try {
-          const text = await this.opts.run(turn.inputs.join('\n'), ac.signal);
+          const text = await this.opts.run({ text: turn.inputs.join('\n'), images: turn.images }, ac.signal);
           turn.resolve(text);
         } catch (err) {
           turn.reject(err as Error);

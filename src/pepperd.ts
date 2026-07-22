@@ -13,7 +13,7 @@ import { ControlServer } from './control/server.js';
 import { Scheduler } from './scheduler/scheduler.js';
 import { anomalousRuns, listJobs } from './scheduler/jobs.js';
 import { CodexEngine } from './engine/codex/adapter.js';
-import { ContextExhaustedError, EngineAuthError, type Engine } from './engine/types.js';
+import { ContextExhaustedError, EngineAuthError, type Engine, type TurnInput } from './engine/types.js';
 import type { Job } from './db.js';
 import { listTodos, renderTodoList } from './todos.js';
 import { todoHooks } from './chat/todo-buttons.js';
@@ -77,7 +77,9 @@ async function main(): Promise<void> {
     clearThreadHygiene();
   }
 
-  async function runOnMain(prompt: string, signal: AbortSignal): Promise<string> {
+  async function runOnMain(turnInput: TurnInput, signal: AbortSignal): Promise<string> {
+    // TODO(images): turnInput.images is not yet threaded into engine.runTurn — a later task wires it up.
+    const prompt = turnInput.text;
     const input = isNewThread(MAIN_CHAT_KEY)
       ? firstTurnInput(cfg, prompt)
       : withDateHeader(prompt, cfg.timezone);
@@ -120,7 +122,8 @@ async function main(): Promise<void> {
   // Isolated jobs get their own slot so a long report doesn't block chat.
   const isolatedQueue = new TurnQueue({
     timeoutMs: cfg.turnTimeoutMs,
-    run: async (input, signal) => (await engine.runIsolated(firstTurnInput(cfg, input), signal)).text,
+    // TODO(images): input.images is not yet threaded into engine.runIsolated — a later task wires it up.
+    run: async (input, signal) => (await engine.runIsolated(firstTurnInput(cfg, input.text), signal)).text,
   });
 
   // --- telegram ------------------------------------------------------------
