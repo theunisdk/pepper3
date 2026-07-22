@@ -77,3 +77,24 @@ describe('requireOwnerIds option', () => {
     expect(() => loadConfig(path, {} as NodeJS.ProcessEnv)).toThrow(ConfigError);
   });
 });
+
+describe('document upload knobs', () => {
+  it('defaults document-upload knobs and allows overrides', () => {
+    const base = loadConfig(writeCfg({ ownerTelegramIds: [1] }));
+    expect(base.pdfMaxImagePages).toBe(20);
+    expect(base.attachmentMaxBytes).toBe(20 * 1024 * 1024);
+    expect(base.uploadsRetentionDays).toBe(30);
+
+    const over = loadConfig(
+      writeCfg({ ownerTelegramIds: [1], pdfMaxImagePages: 5, uploadsRetentionDays: 7 }),
+    );
+    expect(over.pdfMaxImagePages).toBe(5);
+    expect(over.uploadsRetentionDays).toBe(7);
+  });
+
+  it('rejects a non-positive pdfMaxImagePages', () => {
+    expect(() => loadConfig(writeCfg({ ownerTelegramIds: [1], pdfMaxImagePages: 0 }))).toThrow(
+      /pdfMaxImagePages/,
+    );
+  });
+});

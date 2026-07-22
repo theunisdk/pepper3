@@ -21,6 +21,9 @@ function cfgIn(dir: string): PepperConfig {
     threadRotateTokens: 250_000,
     gwsConfigDir: join(dir, 'gws-home'),
     sandboxWritableRoots: [],
+    pdfMaxImagePages: 20,
+    attachmentMaxBytes: 20 * 1024 * 1024,
+    uploadsRetentionDays: 30,
   };
 }
 

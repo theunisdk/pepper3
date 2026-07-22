@@ -44,6 +44,12 @@ export interface PepperConfig {
    */
   whisperBin?: string;
   whisperModel?: string;
+  /** PDF pages rasterized to images per upload. pdftotext still extracts ALL pages' text. */
+  pdfMaxImagePages: number;
+  /** Reject uploads larger than this many bytes before downloading them. */
+  attachmentMaxBytes: number;
+  /** Delete workspace/uploads/<date>/ dirs older than this many days, on startup. */
+  uploadsRetentionDays: number;
 }
 
 const DEFAULTS = {
@@ -54,6 +60,9 @@ const DEFAULTS = {
   cronGraceMs: 30 * 60_000,
   threadNudgeTokens: 150_000,
   threadRotateTokens: 250_000,
+  pdfMaxImagePages: 20,
+  attachmentMaxBytes: 20 * 1024 * 1024,
+  uploadsRetentionDays: 30,
 } as const;
 
 export class ConfigError extends Error {
@@ -154,6 +163,9 @@ export function loadConfig(
     threadRotateTokens: num(c.threadRotateTokens) ?? DEFAULTS.threadRotateTokens,
     gwsConfigDir,
     sandboxWritableRoots,
+    pdfMaxImagePages: num(c.pdfMaxImagePages) ?? DEFAULTS.pdfMaxImagePages,
+    attachmentMaxBytes: num(c.attachmentMaxBytes) ?? DEFAULTS.attachmentMaxBytes,
+    uploadsRetentionDays: num(c.uploadsRetentionDays) ?? DEFAULTS.uploadsRetentionDays,
   };
   const model = str(c.model, env.PEPPER_MODEL);
   if (model) cfg.model = model;
@@ -169,6 +181,9 @@ export function loadConfig(
   if (cfg.threadRotateTokens <= cfg.threadNudgeTokens) {
     throw new ConfigError('threadRotateTokens must be greater than threadNudgeTokens.');
   }
+  if (cfg.pdfMaxImagePages <= 0) throw new ConfigError('pdfMaxImagePages must be a positive integer.');
+  if (cfg.attachmentMaxBytes < 1024) throw new ConfigError('attachmentMaxBytes must be at least 1024.');
+  if (cfg.uploadsRetentionDays < 0) throw new ConfigError('uploadsRetentionDays must be >= 0.');
 
   return cfg;
 }
