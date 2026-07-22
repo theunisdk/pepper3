@@ -228,3 +228,49 @@ describe('scheduled question round-trip (acceptance scenario 1)', () => {
     db.close();
   });
 });
+
+describe('image paths thread through queue -> FakeEngine (offline)', () => {
+  it('threads a single submitted image to FakeTurn.images; plain text carries none', async () => {
+    const engine = new FakeEngine();
+    const queue = new TurnQueue({
+      timeoutMs: 5000,
+      run: async (input, signal) => (await engine.runTurn('main', input, signal)).text,
+    });
+
+    await queue.submit('look at this', ['/u/a.png']);
+    expect(engine.turns).toHaveLength(1);
+    expect(engine.turns[0]!.input).toBe('look at this');
+    expect(engine.turns[0]!.images).toEqual(['/u/a.png']);
+
+    // A bare text submit is unaffected — still records an empty images array.
+    await queue.submit('hi');
+    expect(engine.turns).toHaveLength(2);
+    expect(engine.turns[1]!.input).toBe('hi');
+    expect(engine.turns[1]!.images).toEqual([]);
+  });
+
+  it('coalesced submits merge their images into one FakeTurn, in submission order', async () => {
+    const engine = new FakeEngine();
+    engine.delayMs = 20; // hold turn 1 open so submits 2 and 3 coalesce into turn 2
+
+    const queue = new TurnQueue({
+      timeoutMs: 5000,
+      run: async (input, signal) => (await engine.runTurn('main', input, signal)).text,
+    });
+
+    const p1 = queue.submit('one', ['/u/a.png']);
+    const p2 = queue.submit('two', ['/u/p1.png']);
+    const p3 = queue.submit('three', ['/u/p2.png', '/u/p3.png']);
+
+    await p1;
+    await p2;
+    await p3;
+    engine.delayMs = 0;
+
+    expect(engine.turns).toHaveLength(2);
+    expect(engine.turns[0]!.input).toBe('one');
+    expect(engine.turns[0]!.images).toEqual(['/u/a.png']);
+    expect(engine.turns[1]!.input).toBe('two\nthree');
+    expect(engine.turns[1]!.images).toEqual(['/u/p1.png', '/u/p2.png', '/u/p3.png']);
+  });
+});
