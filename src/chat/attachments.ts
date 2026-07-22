@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
@@ -103,10 +103,10 @@ function saveUnique(dir: string, name: string, buffer: Buffer): string {
   return candidate;
 }
 
-function pdfPageCount(pdfPath: string): number {
+async function pdfPageCount(pdfPath: string): Promise<number> {
   try {
-    const out = execFileSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
-    const m = out.match(/^Pages:\s+(\d+)/m);
+    const { stdout } = await execFileP('pdfinfo', [pdfPath]);
+    const m = stdout.match(/^Pages:\s+(\d+)/m);
     return m ? Number(m[1]) : 0;
   } catch {
     return 0;
@@ -145,7 +145,7 @@ async function processPdf(pdfPath: string, label: string, maxPages: number): Pro
   if (!onPath('pdftoppm')) {
     return { text: `${label}\n\n(PDF saved, but I can't read PDFs on this deployment — poppler-utils isn't installed.)`, images: [] };
   }
-  const pages = pdfPageCount(pdfPath);
+  const pages = await pdfPageCount(pdfPath);
   const renderPages = Math.min(pages || maxPages, maxPages);
   const images = await rasterise(pdfPath, renderPages);
   const text = await extractText(pdfPath);

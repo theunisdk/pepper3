@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, utimesSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -10,9 +10,15 @@ import {
   pruneUploads,
 } from '../src/chat/attachments.js';
 
+const created: string[] = [];
 function ws(): string {
-  return mkdtempSync(join(tmpdir(), 'pepper-att-'));
+  const d = mkdtempSync(join(tmpdir(), 'pepper-att-'));
+  created.push(d);
+  return d;
 }
+afterEach(() => {
+  for (const d of created.splice(0)) rmSync(d, { recursive: true, force: true });
+});
 function hasPoppler(): boolean {
   try { execFileSync('pdftoppm', ['-h'], { stdio: 'ignore' }); return true; } catch { return false; }
 }
