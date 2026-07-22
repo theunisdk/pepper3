@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildThreadOptions } from '../src/engine/codex/adapter.js';
+import { buildThreadOptions, toSdkInput } from '../src/engine/codex/adapter.js';
 
 describe('buildThreadOptions', () => {
   it('sets the unattended sandbox posture', () => {
@@ -24,5 +24,24 @@ describe('buildThreadOptions', () => {
   it('includes the model only when set', () => {
     expect(buildThreadOptions({ workspacePath: '/ws' }).model).toBeUndefined();
     expect(buildThreadOptions({ workspacePath: '/ws', model: 'm' }).model).toBe('m');
+  });
+});
+
+describe('toSdkInput', () => {
+  it('passes a plain string through unchanged', () => {
+    expect(toSdkInput('hello')).toBe('hello');
+  });
+
+  it('passes a TurnInput with no images as its text string', () => {
+    expect(toSdkInput({ text: 'hi' })).toBe('hi');
+    expect(toSdkInput({ text: 'hi', images: [] })).toBe('hi');
+  });
+
+  it('builds a text block followed by one local_image per path, in order', () => {
+    expect(toSdkInput({ text: 'look', images: ['/a.png', '/b.png'] })).toEqual([
+      { type: 'text', text: 'look' },
+      { type: 'local_image', path: '/a.png' },
+      { type: 'local_image', path: '/b.png' },
+    ]);
   });
 });

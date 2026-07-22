@@ -1,8 +1,9 @@
-import type { Engine, EngineHealth, EngineResult } from './types.js';
+import type { Engine, EngineHealth, EngineResult, TurnInput } from './types.js';
 
 export interface FakeTurn {
   chatKey: string | null;
   input: string;
+  images: string[];
   threadId: string;
 }
 
@@ -29,7 +30,7 @@ export class FakeEngine implements Engine {
   /** Reported as EngineResult.inputTokens on every turn (rotation tests). */
   inputTokens: number | undefined = undefined;
 
-  async runTurn(chatKey: string, input: string, signal?: AbortSignal): Promise<EngineResult> {
+  async runTurn(chatKey: string, input: string | TurnInput, signal?: AbortSignal): Promise<EngineResult> {
     return this.exec(chatKey, input, signal);
   }
 
@@ -45,7 +46,11 @@ export class FakeEngine implements Engine {
     return { authenticated: true, authMode: 'subscription', detail: 'fake engine' };
   }
 
-  private async exec(chatKey: string | null, input: string, signal?: AbortSignal): Promise<EngineResult> {
+  private async exec(
+    chatKey: string | null,
+    input: string | TurnInput,
+    signal?: AbortSignal,
+  ): Promise<EngineResult> {
     if (signal?.aborted) throw abortError();
 
     if (this.delayMs > 0) {
@@ -64,13 +69,15 @@ export class FakeEngine implements Engine {
       throw e;
     }
 
+    const text = typeof input === 'string' ? input : input.text;
+    const images = typeof input === 'string' ? [] : (input.images ?? []);
     const threadId = chatKey
       ? (this.threads.get(chatKey) ?? this.newThread(chatKey))
       : `isolated-${++this.seq}`;
 
-    this.turns.push({ chatKey, input, threadId });
+    this.turns.push({ chatKey, input: text, images, threadId });
     return {
-      text: await this.responder(input, chatKey),
+      text: await this.responder(text, chatKey),
       threadId,
       ...(this.inputTokens !== undefined ? { inputTokens: this.inputTokens } : {}),
     };

@@ -1,4 +1,4 @@
-import { Codex, type Thread, type ThreadOptions } from '@openai/codex-sdk';
+import { Codex, type Input, type Thread, type ThreadOptions } from '@openai/codex-sdk';
 import type Database from 'better-sqlite3';
 import { clearThread, getThreadId, setThreadId } from '../../db.js';
 import { logger } from '../../logger.js';
@@ -9,6 +9,7 @@ import {
   type Engine,
   type EngineHealth,
   type EngineResult,
+  type TurnInput,
 } from '../types.js';
 import { checkAuth, isAuthError } from './auth.js';
 import { agentEnv } from './env.js';
@@ -46,6 +47,15 @@ export function buildThreadOptions(
   if (opts.model) threadOptions.model = opts.model;
   if (opts.additionalDirectories?.length) threadOptions.additionalDirectories = opts.additionalDirectories;
   return threadOptions;
+}
+
+/** Map the Engine's input onto the Codex SDK's. A string (or text-only TurnInput)
+ *  stays a string — the exact path every existing caller uses. Images become a
+ *  text block followed by one `local_image` block per path. */
+export function toSdkInput(input: string | TurnInput): Input {
+  if (typeof input === 'string') return input;
+  if (!input.images || input.images.length === 0) return input.text;
+  return [{ type: 'text', text: input.text }, ...input.images.map((path) => ({ type: 'local_image' as const, path }))];
 }
 
 /**
@@ -92,7 +102,7 @@ export class CodexEngine implements Engine {
     logger.info({ chatKey }, 'thread reset');
   }
 
-  async runTurn(chatKey: string, input: string, signal?: AbortSignal): Promise<EngineResult> {
+  async runTurn(chatKey: string, input: string | TurnInput, signal?: AbortSignal): Promise<EngineResult> {
     const existing = getThreadId(this.db, chatKey);
 
     if (existing) {
@@ -121,13 +131,13 @@ export class CodexEngine implements Engine {
 
   private async execute(
     thread: Thread,
-    input: string,
+    input: string | TurnInput,
     chatKey: string | undefined,
     signal?: AbortSignal,
   ): Promise<EngineResult> {
     let turn;
     try {
-      turn = await thread.run(input, signal ? { signal } : {});
+      turn = await thread.run(toSdkInput(input), signal ? { signal } : {});
     } catch (err) {
       throw this.classify(err);
     }

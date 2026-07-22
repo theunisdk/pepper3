@@ -5,6 +5,12 @@
  * against FakeEngine with no subscription and no network.
  */
 
+/** A turn's input: text, plus optional local image paths passed as `local_image` blocks. */
+export interface TurnInput {
+  text: string;
+  images?: string[];
+}
+
 export interface EngineResult {
   /** The reply, and only the reply. Tool calls and reasoning never appear here. */
   text: string;
@@ -43,7 +49,7 @@ export class ContextExhaustedError extends Error {
 
 export interface Engine {
   /** Run a turn on the chat's persistent thread, creating or resuming as needed. */
-  runTurn(chatKey: string, input: string, signal?: AbortSignal): Promise<EngineResult>;
+  runTurn(chatKey: string, input: string | TurnInput, signal?: AbortSignal): Promise<EngineResult>;
 
   /** Run a turn on a fresh throwaway thread. Used by isolated-mode jobs. */
   runIsolated(input: string, signal?: AbortSignal): Promise<EngineResult>;
